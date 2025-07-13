@@ -15,7 +15,7 @@ import {
   TextField
 } from '@mui/material';
 import { 
-  Bug, 
+  BugReport, 
   ExpandMore, 
   Close,
   Info,
@@ -135,7 +135,7 @@ const DebugOverlay: React.FC = () => {
           '&:hover': { opacity: 1 }
         }}
       >
-        <Bug />
+        <BugReport />
       </Fab>
 
       {/* Debug Dialog */}
@@ -149,7 +149,7 @@ const DebugOverlay: React.FC = () => {
         }}
       >
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Bug color="secondary" />
+          <BugReport color="secondary" />
           Debug Console
           <Chip label={`${logs.length} logs`} size="small" />
         </DialogTitle>

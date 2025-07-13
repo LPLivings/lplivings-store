@@ -50,14 +50,21 @@ jobs:
         cd backend
         sam build
 
-    - name: Create Google Credentials file
+    - name: Prepare Google Credentials
       env:
         GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
       run: |
-        cd backend
-        echo "$GOOGLE_CREDENTIALS" > google_creds.json
-        GOOGLE_CREDS_ONELINE=$(cat google_creds.json | jq -c . | sed 's/"/\\"/g')
-        echo "GOOGLE_CREDS_PARAM=$GOOGLE_CREDS_ONELINE" >> $GITHUB_ENV
+        # Create a simplified credentials parameter
+        echo "$GOOGLE_CREDENTIALS" > /tmp/google_creds.json
+        # Validate JSON and compress to single line
+        if jq empty /tmp/google_creds.json 2>/dev/null; then
+          GOOGLE_CREDS_CLEAN=$(jq -c . /tmp/google_creds.json | tr -d '\n\r')
+          echo "GOOGLE_CREDS_PARAM=$GOOGLE_CREDS_CLEAN" >> $GITHUB_ENV
+          echo "✅ Google credentials prepared successfully"
+        else
+          echo "❌ Invalid JSON in Google credentials, using placeholder"
+          echo "GOOGLE_CREDS_PARAM={}" >> $GITHUB_ENV
+        fi
 
     - name: SAM Deploy Backend
       env:
@@ -67,6 +74,13 @@ jobs:
         STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
       run: |
         cd backend
+        
+        # Debug parameters
+        echo "🔍 Deployment parameters:"
+        echo "GoogleClientId: ${GOOGLE_CLIENT_ID:0:20}..."
+        echo "GoogleSheetsId: $GOOGLE_SHEETS_ID"
+        echo "GoogleCredentials length: ${#GOOGLE_CREDS_PARAM}"
+        echo "StripeSecretKey: ${STRIPE_SECRET_KEY:0:10}..."
         
         sam deploy \
           --stack-name lplivings-ecommerce-dev \
@@ -127,8 +141,7 @@ jobs:
 
     - name: Cleanup
       run: |
-        cd backend
-        rm -f google_creds.json
+        rm -f /tmp/google_creds.json
 
     - name: Deployment Summary
       run: |
