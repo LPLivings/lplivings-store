@@ -65,6 +65,30 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Create parameter file
+        run: |
+          cd backend
+          cat > params.json << 'EOF'
+          [
+            {
+              "ParameterKey": "Environment",
+              "ParameterValue": "${{ env.ENVIRONMENT }}"
+            },
+            {
+              "ParameterKey": "GoogleClientId", 
+              "ParameterValue": "${{ secrets.GOOGLE_CLIENT_ID }}"
+            },
+            {
+              "ParameterKey": "GoogleSheetsId",
+              "ParameterValue": "${{ secrets.GOOGLE_SHEETS_ID }}"
+            },
+            {
+              "ParameterKey": "GoogleCredentials",
+              "ParameterValue": "${{ secrets.GOOGLE_CREDENTIALS }}"
+            }
+          ]
+          EOF
+
       - name: SAM Build and Deploy
         run: |
           cd backend
@@ -72,11 +96,7 @@ jobs:
           sam deploy \
             --stack-name lplivings-ecommerce-${{ env.ENVIRONMENT }} \
             --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET }} \
-            --parameter-overrides \
-              Environment=${{ env.ENVIRONMENT }} \
-              GoogleClientId="${{ secrets.GOOGLE_CLIENT_ID }}" \
-              GoogleSheetsId="${{ secrets.GOOGLE_SHEETS_ID }}" \
-              GoogleCredentials="${{ secrets.GOOGLE_CREDENTIALS }}" \
+            --parameter-overrides file://params.json \
             --capabilities CAPABILITY_IAM \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset
