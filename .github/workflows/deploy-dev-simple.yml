@@ -1,8 +1,10 @@
 name: Deploy to Development (Simple)
 
 on:
-  push:
-    branches: [ dev ]
+  # Disabled - using deploy-dev.yml instead
+  # push:
+  #   branches: [ dev ]
+  workflow_dispatch:
 
 env:
   AWS_REGION: us-east-1

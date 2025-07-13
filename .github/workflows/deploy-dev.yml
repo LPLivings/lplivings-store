@@ -112,7 +112,7 @@ EOF
         # Handle Google Credentials separately to avoid multiline issues
         if [[ -n "$GOOGLE_CREDENTIALS" ]]; then
           # Write Google credentials to a temporary file and compress to single line
-          echo "$GOOGLE_CREDENTIALS" | jq -c . >> /tmp/google_creds.json 2>/dev/null || echo "{}" > /tmp/google_creds.json
+          echo "$GOOGLE_CREDENTIALS" | jq -c . > /tmp/google_creds.json 2>/dev/null || echo "{}" > /tmp/google_creds.json
           echo "GoogleCredentials=$(cat /tmp/google_creds.json)" >> deploy-params.txt
         else
           echo "GoogleCredentials={}" >> deploy-params.txt
@@ -129,6 +129,7 @@ EOF
         
         # Set SAM bucket with fallback
         BUCKET="${SAM_BUCKET:-default-sam-bucket}"
+        echo "Using SAM bucket: $BUCKET"
         
         # Convert parameter file to SAM format
         PARAMS=""
@@ -137,14 +138,22 @@ EOF
         done < deploy-params.txt
         
         echo "🚀 Deploying with SAM..."
+        echo "Stack name: lplivings-ecommerce-${{ env.ENVIRONMENT }}"
         echo "Parameters: $PARAMS"
         
-        sam deploy \
+        # Try deployment with error handling
+        if ! sam deploy \
           --stack-name lplivings-ecommerce-${{ env.ENVIRONMENT }} \
           --s3-bucket "$BUCKET" \
           --capabilities CAPABILITY_IAM \
           --parameter-overrides $PARAMS \
-          --no-confirm-changeset
+          --no-confirm-changeset; then
+          echo "❌ SAM deployment failed. Checking stack status..."
+          aws cloudformation describe-stack-events \
+            --stack-name lplivings-ecommerce-${{ env.ENVIRONMENT }} \
+            --max-items 10 || echo "No stack events found"
+          exit 1
+        fi
 
     - name: Get API Gateway URL
       id: get-api-url
