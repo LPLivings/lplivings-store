@@ -108,41 +108,15 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Deploy to AWS Amplify
+      - name: Deploy to S3 and CloudFront
         run: |
-          # Create or update Amplify app
-          APP_ID=$(aws amplify list-apps --query "apps[?name=='ecommerce-${{ env.ENVIRONMENT }}'].appId" --output text)
+          cd frontend
           
-          if [ -z "$APP_ID" ]; then
-            APP_ID=$(aws amplify create-app \
-              --name ecommerce-${{ env.ENVIRONMENT }} \
-              --query 'app.appId' \
-              --output text)
+          # Deploy to S3
+          if [ "${{ env.ENVIRONMENT }}" == "dev" ]; then
+            aws s3 sync build/ s3://lplivings-dev-frontend --delete
+            aws cloudfront create-invalidation --distribution-id E30P7MQ5S4C3YZ --paths "/*"
+          else
+            aws s3 sync build/ s3://lplivings-prod-frontend --delete
+            aws cloudfront create-invalidation --distribution-id E34LYSJHP1H3XQ --paths "/*"
           fi
-          
-          # Create deployment
-          DEPLOYMENT_ID=$(aws amplify create-deployment \
-            --app-id $APP_ID \
-            --branch-name ${{ env.ENVIRONMENT }} \
-            --query 'jobSummary.jobId' \
-            --output text)
-          
-          # Upload build artifacts
-          cd frontend/build
-          zip -r ../build.zip .
-          cd ..
-          
-          UPLOAD_URL=$(aws amplify get-deployment \
-            --app-id $APP_ID \
-            --branch-name ${{ env.ENVIRONMENT }} \
-            --deployment-id $DEPLOYMENT_ID \
-            --query 'deployment.uploadUrl' \
-            --output text)
-          
-          curl -X PUT -T build.zip "$UPLOAD_URL"
-          
-          # Start deployment
-          aws amplify start-deployment \
-            --app-id $APP_ID \
-            --branch-name ${{ env.ENVIRONMENT }} \
-            --job-id $DEPLOYMENT_ID
