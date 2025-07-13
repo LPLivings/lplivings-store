@@ -1,7 +1,7 @@
 name: Deploy to Development (Working)
 
 on:
-  # Disabled - using deploy-frontend-only.yml for now
+  # Disabled - using deploy-dev-unified.yml instead
   # push:
   #   branches: [ dev ]
   workflow_dispatch:

@@ -1,0 +1,151 @@
+name: Deploy to Development (Unified)
+
+on:
+  push:
+    branches: [ dev ]
+
+env:
+  AWS_REGION: us-east-1
+  ENVIRONMENT: dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: development
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Set up AWS CLI
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Set up SAM CLI
+      uses: aws-actions/setup-sam@v2
+
+    # Backend Deployment
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        pip install -r requirements.txt
+
+    - name: SAM Build
+      run: |
+        cd backend
+        sam build
+
+    - name: Create Google Credentials file
+      env:
+        GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+      run: |
+        cd backend
+        echo "$GOOGLE_CREDENTIALS" > google_creds.json
+        GOOGLE_CREDS_ONELINE=$(cat google_creds.json | jq -c . | sed 's/"/\\"/g')
+        echo "GOOGLE_CREDS_PARAM=$GOOGLE_CREDS_ONELINE" >> $GITHUB_ENV
+
+    - name: SAM Deploy Backend
+      env:
+        GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+        GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+        SAM_BUCKET: ${{ secrets.SAM_DEPLOYMENT_BUCKET }}
+        STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+      run: |
+        cd backend
+        
+        sam deploy \
+          --stack-name lplivings-ecommerce-dev \
+          --s3-bucket "$SAM_BUCKET" \
+          --capabilities CAPABILITY_IAM \
+          --parameter-overrides \
+            Environment=dev \
+            GoogleClientId="$GOOGLE_CLIENT_ID" \
+            GoogleSheetsId="$GOOGLE_SHEETS_ID" \
+            GoogleCredentials="$GOOGLE_CREDS_PARAM" \
+            StripeSecretKey="$STRIPE_SECRET_KEY" \
+          --no-confirm-changeset
+
+    - name: Get API URL
+      id: api-url
+      run: |
+        API_URL=$(aws cloudformation describe-stacks \
+          --stack-name lplivings-ecommerce-dev \
+          --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
+          --output text)
+        echo "api-url=$API_URL" >> $GITHUB_OUTPUT
+        echo "✅ Backend deployed to: $API_URL"
+
+    # Frontend Deployment
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm ci
+
+    - name: Build React app
+      env:
+        REACT_APP_API_URL: ${{ steps.api-url.outputs.api-url }}
+        REACT_APP_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+        REACT_APP_BUILD_SHA: ${{ github.sha }}
+        REACT_APP_BUILD_TIMESTAMP: ${{ github.event.head_commit.timestamp }}
+        REACT_APP_BUILD_BRANCH: ${{ github.ref_name }}
+        REACT_APP_ENVIRONMENT: dev
+      run: |
+        cd frontend
+        echo "🏗️ Building frontend with:"
+        echo "API URL: $REACT_APP_API_URL"
+        echo "Build SHA: $REACT_APP_BUILD_SHA"
+        echo "Timestamp: $REACT_APP_BUILD_TIMESTAMP"
+        echo "Branch: $REACT_APP_BUILD_BRANCH"
+        npm run build
+
+    - name: Deploy frontend to S3
+      run: |
+        cd frontend
+        aws s3 sync build/ s3://lplivings-dev-frontend --delete
+
+    - name: Invalidate CloudFront (if exists)
+      run: |
+        # Try to invalidate CloudFront cache, ignore if distribution doesn't exist
+        aws cloudfront create-invalidation \
+          --distribution-id E30P7MQ5S4C3YZ \
+          --paths "/*" || echo "CloudFront distribution not found, skipping invalidation"
+
+    - name: Cleanup
+      run: |
+        cd backend
+        rm -f google_creds.json
+
+    - name: Deployment Summary
+      run: |
+        echo "🚀 Unified Deployment Complete!"
+        echo ""
+        echo "📱 Frontend:"
+        echo "   URL: http://lplivings-dev-frontend.s3-website-us-east-1.amazonaws.com"
+        echo "   Custom: https://lplivings-dev.selfcaretech.com (if DNS configured)"
+        echo ""
+        echo "⚡ Backend API:"
+        echo "   URL: ${{ steps.api-url.outputs.api-url }}"
+        echo "   Custom: https://api-dev.selfcaretech.com (if DNS configured)"
+        echo ""
+        echo "📋 Build Info:"
+        echo "   SHA: ${{ github.sha }}"
+        echo "   Branch: ${{ github.ref_name }}"
+        echo "   Timestamp: ${{ github.event.head_commit.timestamp }}"
+        echo ""
+        echo "🐛 Debug Mode: Add ?debug=true to frontend URL"
+        echo "🔄 Both frontend AND backend changes are now deployed!"
