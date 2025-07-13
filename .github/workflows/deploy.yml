@@ -27,12 +27,36 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
+          cache: 'pip'
+
+      - name: Cache SAM CLI
+        uses: actions/cache@v3
+        with:
+          path: ~/.local/bin/sam
+          key: sam-cli-${{ runner.os }}
 
       - name: Install dependencies
         run: |
           cd backend
           pip install -r requirements.txt
-          pip install aws-sam-cli
+          if ! command -v sam &> /dev/null; then
+            pip install aws-sam-cli
+          fi
+
+      - name: Validate required secrets
+        run: |
+          MISSING_SECRETS=""
+          [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ] && MISSING_SECRETS="$MISSING_SECRETS AWS_ACCESS_KEY_ID"
+          [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ] && MISSING_SECRETS="$MISSING_SECRETS AWS_SECRET_ACCESS_KEY"
+          [ -z "${{ secrets.GOOGLE_CLIENT_ID }}" ] && MISSING_SECRETS="$MISSING_SECRETS GOOGLE_CLIENT_ID"
+          [ -z "${{ secrets.GOOGLE_SHEETS_ID }}" ] && MISSING_SECRETS="$MISSING_SECRETS GOOGLE_SHEETS_ID"
+          [ -z "${{ secrets.GOOGLE_CREDENTIALS }}" ] && MISSING_SECRETS="$MISSING_SECRETS GOOGLE_CREDENTIALS"
+          [ -z "${{ secrets.SAM_DEPLOYMENT_BUCKET }}" ] && MISSING_SECRETS="$MISSING_SECRETS SAM_DEPLOYMENT_BUCKET"
+          
+          if [ ! -z "$MISSING_SECRETS" ]; then
+            echo "ERROR: Missing required secrets: $MISSING_SECRETS"
+            exit 1
+          fi
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
@@ -47,12 +71,12 @@ jobs:
           sam build
           sam deploy \
             --stack-name lplivings-ecommerce-${{ env.ENVIRONMENT }} \
-            --s3-bucket lplivings-sam-deployments-058264492241 \
+            --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET }} \
             --parameter-overrides \
               Environment=${{ env.ENVIRONMENT }} \
-              GoogleClientId=${{ secrets.GOOGLE_CLIENT_ID }} \
-              GoogleSheetsId=${{ secrets.GOOGLE_SHEETS_ID }} \
-              GoogleCredentials='${{ secrets.GOOGLE_CREDENTIALS }}' \
+              GoogleClientId="${{ secrets.GOOGLE_CLIENT_ID }}" \
+              GoogleSheetsId="${{ secrets.GOOGLE_SHEETS_ID }}" \
+              GoogleCredentials="${{ secrets.GOOGLE_CREDENTIALS }}" \
             --capabilities CAPABILITY_IAM \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset
@@ -87,11 +111,13 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
         run: |
           cd frontend
-          npm ci
+          npm ci --prefer-offline
 
       - name: Build React app
         env:
