@@ -75,12 +75,24 @@ jobs:
       run: |
         cd backend
         
+        # Set fallback values for empty secrets
+        GOOGLE_CLIENT_ID_PARAM="${GOOGLE_CLIENT_ID:-placeholder-client-id}"
+        GOOGLE_SHEETS_ID_PARAM="${GOOGLE_SHEETS_ID:-placeholder-sheets-id}"
+        GOOGLE_CREDS_PARAM="${GOOGLE_CREDS_PARAM:-{}}"
+        STRIPE_SECRET_KEY_PARAM="${STRIPE_SECRET_KEY:-sk_test_placeholder_stripe_key_for_dev}"
+        
+        # Warn about missing secrets
+        [[ "$GOOGLE_CLIENT_ID_PARAM" == "placeholder-client-id" ]] && echo "⚠️  Using placeholder for GOOGLE_CLIENT_ID"
+        [[ "$GOOGLE_SHEETS_ID_PARAM" == "placeholder-sheets-id" ]] && echo "⚠️  Using placeholder for GOOGLE_SHEETS_ID"
+        [[ "$GOOGLE_CREDS_PARAM" == "{}" ]] && echo "⚠️  Using placeholder for GOOGLE_CREDENTIALS"
+        [[ "$STRIPE_SECRET_KEY_PARAM" == "sk_test_placeholder_stripe_key_for_dev" ]] && echo "⚠️  Using placeholder for STRIPE_SECRET_KEY"
+        
         # Debug parameters
         echo "🔍 Deployment parameters:"
-        echo "GoogleClientId: ${GOOGLE_CLIENT_ID:0:20}..."
-        echo "GoogleSheetsId: $GOOGLE_SHEETS_ID"
+        echo "GoogleClientId: ${GOOGLE_CLIENT_ID_PARAM:0:20}..."
+        echo "GoogleSheetsId: $GOOGLE_SHEETS_ID_PARAM"
         echo "GoogleCredentials length: ${#GOOGLE_CREDS_PARAM}"
-        echo "StripeSecretKey: ${STRIPE_SECRET_KEY:0:10}..."
+        echo "StripeSecretKey: ${STRIPE_SECRET_KEY_PARAM:0:10}..."
         
         sam deploy \
           --stack-name lplivings-ecommerce-dev \
@@ -88,10 +100,10 @@ jobs:
           --capabilities CAPABILITY_IAM \
           --parameter-overrides \
             Environment=dev \
-            GoogleClientId="$GOOGLE_CLIENT_ID" \
-            GoogleSheetsId="$GOOGLE_SHEETS_ID" \
+            GoogleClientId="$GOOGLE_CLIENT_ID_PARAM" \
+            GoogleSheetsId="$GOOGLE_SHEETS_ID_PARAM" \
             GoogleCredentials="$GOOGLE_CREDS_PARAM" \
-            StripeSecretKey="$STRIPE_SECRET_KEY" \
+            StripeSecretKey="$STRIPE_SECRET_KEY_PARAM" \
           --no-confirm-changeset
 
     - name: Get API URL
