@@ -26,13 +26,25 @@ def lambda_handler(event, context):
         file_extension = event.get('queryStringParameters', {}).get('ext', 'jpg')
         filename = f"products/{str(uuid.uuid4())}.{file_extension}"
         
+        # Map file extensions to proper MIME types
+        content_type_map = {
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg', 
+            'png': 'image/png',
+            'webp': 'image/webp',
+            'gif': 'image/gif'
+        }
+        content_type = content_type_map.get(file_extension.lower(), 'image/jpeg')
+        
+        print(f"File extension: {file_extension}, Content-Type: {content_type}")
+        
         # Generate pre-signed URL for upload
         presigned_url = s3_client.generate_presigned_url(
             'put_object',
             Params={
                 'Bucket': S3_BUCKET,
                 'Key': filename,
-                'ContentType': f'image/{file_extension}'
+                'ContentType': content_type
             },
             ExpiresIn=300  # 5 minutes
         )
