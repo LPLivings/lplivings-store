@@ -19,9 +19,7 @@ import {
   ExpandMore, 
   Close,
   Info,
-  Storage,
-  Network,
-  Settings
+  Storage
 } from '@mui/icons-material';
 
 interface DebugLog {
