@@ -1,11 +1,9 @@
 name: Deploy to Development
 
 on:
-  # Disabled - using deploy-dev-working.yml instead  
-  # push:
-  #   branches: [ dev ]
-  # pull_request:
-  #   branches: [ dev ]
+  # Disabled - using deploy-dev-unified.yml instead  
+  # This workflow had issues with Google Credentials and complex parameter handling
+  # The unified workflow properly handles both backend and frontend deployment
   workflow_dispatch:
 
 env:
