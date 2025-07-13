@@ -95,8 +95,9 @@ jobs:
 
       - name: Build React app
         env:
-          REACT_APP_API_URL: ${{ needs.deploy-backend.outputs.api_url }}
+          REACT_APP_API_URL: ${{ env.ENVIRONMENT == 'dev' && 'https://api-dev.selfcaretech.com' || 'https://api.selfcaretech.com' }}
           REACT_APP_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          REACT_APP_ENVIRONMENT: ${{ env.ENVIRONMENT }}
         run: |
           cd frontend
           npm run build
