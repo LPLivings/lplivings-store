@@ -5,6 +5,8 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import Layout from './components/Layout';
+import BuildInfo from './components/BuildInfo';
+import DebugOverlay from './components/DebugOverlay';
 import Home from './pages/Home';
 import Products from './pages/Products';
 import Cart from './pages/Cart';
@@ -43,6 +45,7 @@ function App() {
         <ThemeProvider theme={theme}>
           <CssBaseline />
           <Router>
+            <BuildInfo position="header" />
             <Layout>
               <Routes>
                 <Route path="/" element={<Home />} />
@@ -53,7 +56,9 @@ function App() {
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/add-product" element={<AddProduct />} />
               </Routes>
+              <BuildInfo position="footer" />
             </Layout>
+            <DebugOverlay />
           </Router>
         </ThemeProvider>
       </QueryClientProvider>

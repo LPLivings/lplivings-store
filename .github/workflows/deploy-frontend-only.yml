@@ -33,8 +33,16 @@ jobs:
         # Use your local development API for now
         REACT_APP_API_URL: http://localhost:3002
         REACT_APP_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+        REACT_APP_BUILD_SHA: ${{ github.sha }}
+        REACT_APP_BUILD_TIMESTAMP: ${{ github.event.head_commit.timestamp }}
+        REACT_APP_BUILD_BRANCH: ${{ github.ref_name }}
+        REACT_APP_ENVIRONMENT: dev
       run: |
         cd frontend
+        echo "Building with build info:"
+        echo "SHA: $REACT_APP_BUILD_SHA"
+        echo "Timestamp: $REACT_APP_BUILD_TIMESTAMP"
+        echo "Branch: $REACT_APP_BUILD_BRANCH"
         npm run build
 
     - name: Set up AWS CLI
@@ -54,3 +62,10 @@ jobs:
         echo "🚀 Frontend Deployment Complete!"
         echo "Frontend URL: http://lplivings-dev-frontend.s3-website-us-east-1.amazonaws.com"
         echo "Note: Using local backend at localhost:3002 for development"
+        echo ""
+        echo "📋 Build Info:"
+        echo "SHA: ${{ github.sha }}"
+        echo "Timestamp: ${{ github.event.head_commit.timestamp }}"
+        echo "Branch: ${{ github.ref_name }}"
+        echo ""
+        echo "🐛 Debug Mode: Add ?debug=true to URL to enable debug console"
