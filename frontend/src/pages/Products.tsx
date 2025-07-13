@@ -66,7 +66,7 @@ const Products: React.FC = () => {
             fontSize: { xs: '0.9rem', md: '1rem' }
           }
         }}
-        size={isMobile ? "medium" : "large"}
+        size="medium"
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">

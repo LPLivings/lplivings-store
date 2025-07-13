@@ -75,7 +75,7 @@ const Profile: React.FC = () => {
           color="error" 
           onClick={handleLogout}
           fullWidth={isMobile}
-          size={isMobile ? "medium" : "large"}
+          size="medium"
         >
           Logout
         </Button>

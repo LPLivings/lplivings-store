@@ -29,7 +29,7 @@ const Home: React.FC = () => {
         </Typography>
         <Button
           variant="contained"
-          size={isMobile ? "medium" : "large"}
+          size="medium"
           onClick={() => navigate('/products')}
           sx={{ 
             mt: 2,
