@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - dev
+  # Note: dev branch deployment handled by deploy-dev.yml
 
 env:
   AWS_REGION: us-east-1
