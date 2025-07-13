@@ -222,18 +222,18 @@ def add_product(event, headers):
     try:
         product_id = str(uuid.uuid4())
         
-        # Log detailed request information
-        print(f"=== ADD PRODUCT REQUEST DEBUG ===")
-        print(f"Event keys: {list(event.keys())}")
-        print(f"Headers: {event.get('headers', {})}")
-        print(f"Body length: {len(event.get('body', ''))}")
-        print(f"Is Base64 Encoded: {event.get('isBase64Encoded', False)}")
-        
-        # Handle multipart form data
+        # Handle JSON requests (no file upload - use pre-signed URLs)
         content_type = event.get('headers', {}).get('content-type', '') or event.get('headers', {}).get('Content-Type', '')
-        print(f"Content-Type: {content_type}")
         
-        if 'multipart/form-data' in content_type:
+        if 'application/json' in content_type or not content_type.startswith('multipart/'):
+            body = json.loads(event['body']) if event.get('body') else {}
+            name = body.get('name', '')
+            description = body.get('description', '')
+            price = body.get('price', '0')
+            category = body.get('category', '')
+            user_id = body.get('userId', '')
+            image_url = body.get('imageUrl', '')  # Pre-uploaded via pre-signed URL
+        elif 'multipart/form-data' in content_type:
             boundary = content_type.split('boundary=')[1] if 'boundary=' in content_type else None
             print(f"Boundary: {boundary}")
             if boundary:
@@ -321,6 +321,9 @@ def add_product(event, headers):
             })
         }
     except Exception as e:
+        import traceback
+        print(f"ERROR in add_product: {str(e)}")
+        print(f"Traceback: {traceback.format_exc()}")
         return {
             'statusCode': 500,
             'headers': headers,
