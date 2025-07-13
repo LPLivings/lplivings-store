@@ -38,13 +38,13 @@ def lambda_handler(event, context):
         
         print(f"File extension: {file_extension}, Content-Type: {content_type}")
         
-        # Generate pre-signed URL for upload
+        # Generate pre-signed URL for upload - be more permissive with content type
         presigned_url = s3_client.generate_presigned_url(
             'put_object',
             Params={
                 'Bucket': S3_BUCKET,
                 'Key': filename,
-                'ContentType': content_type
+                # Don't specify ContentType in params to make it more flexible
             },
             ExpiresIn=300  # 5 minutes
         )
