@@ -157,9 +157,9 @@ def analyze_image():
     data = request.get_json()
     image_url = data.get('imageUrl', '')
     
-    # Simulate processing time (reduced for better UX)
+    # Simulate processing time (minimal for mobile UX)
     import time
-    time.sleep(0.5)  # Reduced from potential long delays
+    time.sleep(0.1)  # Very fast for better mobile experience
     
     # Mock AI analysis response
     import random

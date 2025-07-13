@@ -92,6 +92,52 @@ const AddProduct: React.FC = () => {
     retryDelay: 1000 // Wait 1 second between retries
   });
 
+  const compressImage = (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d')!;
+      const img = new Image();
+      
+      img.onload = () => {
+        // Calculate new dimensions (max 800px)
+        const maxWidth = 800;
+        const maxHeight = 800;
+        let { width, height } = img;
+        
+        if (width > height) {
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = (width * maxHeight) / height;
+            height = maxHeight;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Draw and compress
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now()
+            });
+            resolve(compressedFile);
+          } else {
+            resolve(file);
+          }
+        }, 'image/jpeg', 0.7); // 70% quality
+      };
+      
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
   const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -109,9 +155,15 @@ const AddProduct: React.FC = () => {
       }
 
       setError('');
-      setImage(file);
-      const previewUrl = URL.createObjectURL(file);
+      setIsUploading(true);
+      
+      // Compress image for better performance
+      const compressedFile = await compressImage(file);
+      setImage(compressedFile);
+      const previewUrl = URL.createObjectURL(compressedFile);
       setImagePreview(previewUrl);
+      
+      console.log(`Image compressed: ${file.size} → ${compressedFile.size} bytes`);
 
       // Upload image and analyze
       try {
@@ -269,7 +321,10 @@ const AddProduct: React.FC = () => {
                       >
                         <CircularProgress sx={{ color: 'white' }} />
                         <Typography color="white" variant="body2" textAlign="center">
-                          {isUploading ? 'Uploading image...' : 'AI analyzing your product...'}
+                          {isUploading ? 'Compressing & uploading...' : 'AI analyzing your product...'}
+                        </Typography>
+                        <Typography color="white" variant="caption" textAlign="center">
+                          {isUploading ? 'Optimizing for mobile' : 'This should be quick!'}
                         </Typography>
                       </Box>
                     )}
