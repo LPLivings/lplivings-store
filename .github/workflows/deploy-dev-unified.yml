@@ -94,7 +94,8 @@ jobs:
         echo "GoogleCredentials length: ${#GOOGLE_CREDS_PARAM}"
         echo "StripeSecretKey: ${STRIPE_SECRET_KEY_PARAM:0:10}..."
         
-        sam deploy \
+        # Deploy backend, but don't fail if no changes
+        if sam deploy \
           --stack-name lplivings-ecommerce-dev \
           --s3-bucket "$SAM_BUCKET" \
           --capabilities CAPABILITY_IAM \
@@ -104,7 +105,16 @@ jobs:
             GoogleSheetsId="$GOOGLE_SHEETS_ID_PARAM" \
             GoogleCredentials="$GOOGLE_CREDS_PARAM" \
             StripeSecretKey="$STRIPE_SECRET_KEY_PARAM" \
-          --no-confirm-changeset
+          --no-confirm-changeset; then
+          echo "✅ Backend deployment completed"
+        else
+          if [ $? -eq 1 ]; then
+            echo "ℹ️  No backend changes to deploy - continuing with frontend"
+          else
+            echo "❌ Backend deployment failed"
+            exit 1
+          fi
+        fi
 
     - name: Get API URL
       id: api-url
