@@ -14,7 +14,6 @@ import {
   InputLabel,
   Card,
   CardMedia,
-  IconButton,
   Chip,
   Fab,
   useTheme,
@@ -24,8 +23,7 @@ import {
 } from '@mui/material';
 import { 
   PhotoCamera, 
-  AutoAwesome, 
-  Edit, 
+ 
   Check, 
   Close, 
   CameraAlt,

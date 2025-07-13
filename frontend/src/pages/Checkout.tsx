@@ -27,14 +27,13 @@ import {
   ShoppingCart,
   Payment,
   CheckCircle,
-  Person,
   LocalShipping
 } from '@mui/icons-material';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 import useCartStore from '../store/cartStore';
-import { createPaymentIntent, confirmPayment, createOrder } from '../services/api';
+import { createPaymentIntent, createOrder } from '../services/api';
 
 const Checkout: React.FC = () => {
   const navigate = useNavigate();
@@ -52,7 +51,6 @@ const Checkout: React.FC = () => {
     city: '',
     zipCode: ''
   });
-  const [paymentIntentId, setPaymentIntentId] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
 
   const steps = ['Review Order', 'Shipping Info', 'Payment', 'Confirmation'];
@@ -85,7 +83,6 @@ const Checkout: React.FC = () => {
         orderDetails
       });
 
-      setPaymentIntentId(response.paymentIntentId);
       return response;
     },
     onSuccess: () => {
