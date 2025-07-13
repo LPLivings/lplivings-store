@@ -1,8 +1,10 @@
 name: Deploy to Development (Working)
 
 on:
-  push:
-    branches: [ dev ]
+  # Disabled - using deploy-frontend-only.yml for now
+  # push:
+  #   branches: [ dev ]
+  workflow_dispatch:
 
 env:
   AWS_REGION: us-east-1
@@ -52,21 +54,21 @@ jobs:
       run: |
         cd backend
         
-        # Create a simple parameter string
-        GOOGLE_CREDS_ESCAPED=$(echo "$GOOGLE_CREDENTIALS" | jq -c . | sed 's/"/\\"/g')
+        # Clean and compress Google Credentials
+        echo "$GOOGLE_CREDENTIALS" > /tmp/google_creds.json
+        GOOGLE_CREDS_CLEAN=$(cat /tmp/google_creds.json | tr -d '\n\r' | sed 's/"/\\"/g')
         
         sam deploy \
           --stack-name lplivings-ecommerce-dev \
           --s3-bucket "$SAM_BUCKET" \
           --capabilities CAPABILITY_IAM \
           --parameter-overrides \
-            Environment=dev \
-            GoogleClientId="$GOOGLE_CLIENT_ID" \
-            GoogleSheetsId="$GOOGLE_SHEETS_ID" \
-            GoogleCredentials="$GOOGLE_CREDS_ESCAPED" \
-            StripeSecretKey="$STRIPE_SECRET_KEY" \
-          --no-confirm-changeset \
-          --debug
+            "Environment=dev" \
+            "GoogleClientId=$GOOGLE_CLIENT_ID" \
+            "GoogleSheetsId=$GOOGLE_SHEETS_ID" \
+            "GoogleCredentials=$GOOGLE_CREDS_CLEAN" \
+            "StripeSecretKey=$STRIPE_SECRET_KEY" \
+          --no-confirm-changeset
 
     - name: Get API URL
       id: api-url

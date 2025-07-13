@@ -1,0 +1,56 @@
+name: Deploy Frontend Only
+
+on:
+  push:
+    branches: [ dev ]
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    environment: development
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm ci
+
+    - name: Build React app
+      env:
+        # Use your local development API for now
+        REACT_APP_API_URL: http://localhost:3002
+        REACT_APP_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      run: |
+        cd frontend
+        npm run build
+
+    - name: Set up AWS CLI
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Deploy frontend to S3
+      run: |
+        cd frontend
+        aws s3 sync build/ s3://lplivings-dev-frontend --delete
+
+    - name: Success message
+      run: |
+        echo "🚀 Frontend Deployment Complete!"
+        echo "Frontend URL: http://lplivings-dev-frontend.s3-website-us-east-1.amazonaws.com"
+        echo "Note: Using local backend at localhost:3002 for development"
