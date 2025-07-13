@@ -34,23 +34,39 @@ jobs:
     - name: Set up SAM CLI
       uses: aws-actions/setup-sam@v2
 
+    - name: Debug environment
+      run: |
+        echo "AWS Region: ${{ env.AWS_REGION }}"
+        echo "Environment: ${{ env.ENVIRONMENT }}"
+        echo "Has AWS Access Key: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}"
+        echo "Has AWS Secret Key: ${{ secrets.AWS_SECRET_ACCESS_KEY != '' }}"
+        echo "Has SAM Bucket: ${{ secrets.SAM_DEPLOYMENT_BUCKET != '' }}"
+        echo "Has Google Client ID: ${{ secrets.GOOGLE_CLIENT_ID != '' }}"
+        echo "Has Google Sheets ID: ${{ secrets.GOOGLE_SHEETS_ID != '' }}"
+        echo "Has Google Credentials: ${{ secrets.GOOGLE_CREDENTIALS != '' }}"
+
     - name: Build SAM application
       run: |
         cd backend
         sam build
 
     - name: Deploy to AWS
+      env:
+        GOOGLE_CREDS: ${{ secrets.GOOGLE_CREDENTIALS }}
+        STRIPE_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
       run: |
         cd backend
+        # Use environment variables to avoid parameter parsing issues
         sam deploy \
           --stack-name lplivings-ecommerce-${{ env.ENVIRONMENT }} \
           --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET }} \
           --capabilities CAPABILITY_IAM \
           --parameter-overrides \
-            Environment=${{ env.ENVIRONMENT }} \
-            GoogleClientId="${{ secrets.GOOGLE_CLIENT_ID }}" \
-            GoogleSheetsId="${{ secrets.GOOGLE_SHEETS_ID }}" \
-            GoogleCredentials="${{ secrets.GOOGLE_CREDENTIALS }}" \
+            "Environment=${{ env.ENVIRONMENT }}" \
+            "GoogleClientId=${{ secrets.GOOGLE_CLIENT_ID }}" \
+            "GoogleSheetsId=${{ secrets.GOOGLE_SHEETS_ID }}" \
+            "GoogleCredentials=${GOOGLE_CREDS:-{}}" \
+            "StripeSecretKey=${STRIPE_KEY:-placeholder-stripe-key}" \
           --no-confirm-changeset
 
     - name: Get API Gateway URL
