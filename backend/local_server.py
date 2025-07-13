@@ -161,22 +161,53 @@ def analyze_image():
     import time
     time.sleep(0.1)  # Very fast for better mobile experience
     
-    # Mock AI analysis response
+    # Mock AI analysis response with more realistic food/product detection
     import random
-    categories = ['Electronics', 'Clothing', 'Home & Garden', 'Kitchen', 'Books', 'Sports', 'Beauty', 'Toys']
-    descriptions = [
-        'High-quality product with excellent build materials',
-        'Stylish and functional item perfect for everyday use',
-        'Durable and reliable product with modern design',
-        'Premium quality item with great value for money',
-        'Versatile product suitable for various applications'
-    ]
+    
+    # Simulate smarter AI that detects different product types
+    food_items = {
+        'categories': ['Kitchen', 'Home & Garden', 'Health'],
+        'descriptions': [
+            'Fresh organic cucumber, perfect for salads and healthy cooking',
+            'Premium quality vegetable, ideal for fresh consumption',
+            'Crisp and refreshing cucumber, great for snacks and meals',
+            'Natural organic produce, perfect for healthy lifestyle',
+            'Fresh garden vegetable, excellent for culinary use'
+        ],
+        'names': ['Fresh Cucumber', 'Organic Cucumber', 'Garden Cucumber', 'Premium Cucumber']
+    }
+    
+    electronics = {
+        'categories': ['Electronics', 'Technology'],
+        'descriptions': [
+            'High-quality electronic device with modern features',
+            'Advanced technology product for everyday use',
+            'Premium electronics with excellent performance'
+        ],
+        'names': ['Smart Device', 'Tech Product', 'Electronic Item']
+    }
+    
+    general_items = {
+        'categories': ['General', 'Home & Garden', 'Lifestyle'],
+        'descriptions': [
+            'Quality product with excellent build materials',
+            'Stylish and functional item perfect for everyday use',
+            'Durable and reliable product with modern design'
+        ],
+        'names': ['Quality Product', 'Premium Item', 'Lifestyle Product']
+    }
+    
+    # Randomly pick a product type to simulate AI detection
+    product_types = [food_items, electronics, general_items]
+    weights = [0.6, 0.2, 0.2]  # 60% chance of food detection for demo
+    selected_type = random.choices(product_types, weights=weights)[0]
     
     return jsonify({
-        'category': random.choice(categories),
-        'description': random.choice(descriptions),
-        'labels': ['product', 'commercial', 'item'],
-        'confidence': 0.95
+        'category': random.choice(selected_type['categories']),
+        'description': random.choice(selected_type['descriptions']),
+        'name': random.choice(selected_type['names']),
+        'labels': ['product', 'food', 'vegetable'] if selected_type == food_items else ['product', 'commercial'],
+        'confidence': round(random.uniform(0.85, 0.98), 2)
     })
 
 @app.route('/health', methods=['GET'])

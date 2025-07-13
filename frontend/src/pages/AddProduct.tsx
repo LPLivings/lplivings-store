@@ -57,6 +57,7 @@ const AddProduct: React.FC = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [aiSuggestions, setAiSuggestions] = useState({
+    name: '',
     description: '',
     category: '',
     applied: false
@@ -77,6 +78,7 @@ const AddProduct: React.FC = () => {
     onSuccess: (data) => {
       setAiAnalysis(data);
       setAiSuggestions({
+        name: data.name || '',
         description: data.description || '',
         category: data.category || '',
         applied: false
@@ -190,6 +192,7 @@ const AddProduct: React.FC = () => {
   const applySuggestions = () => {
     setFormData(prev => ({
       ...prev,
+      name: aiSuggestions.name,
       description: aiSuggestions.description,
       category: aiSuggestions.category
     }));
@@ -392,7 +395,7 @@ const AddProduct: React.FC = () => {
               )}
 
               {/* AI Suggestions */}
-              {aiSuggestions.description && !aiSuggestions.applied && (
+              {(aiSuggestions.name || aiSuggestions.description) && !aiSuggestions.applied && (
                 <Card sx={{ mt: 2, bgcolor: 'primary.50', border: 1, borderColor: 'primary.200' }}>
                   <Box sx={{ p: 2 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -408,12 +411,21 @@ const AddProduct: React.FC = () => {
                     </Box>
                     
                     <Box sx={{ mb: 2 }}>
-                      <Typography variant="body2" color="text.secondary" gutterBottom>
-                        <strong>Category:</strong> {aiSuggestions.category}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        <strong>Description:</strong> {aiSuggestions.description}
-                      </Typography>
+                      {aiSuggestions.name && (
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          <strong>Name:</strong> {aiSuggestions.name}
+                        </Typography>
+                      )}
+                      {aiSuggestions.category && (
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          <strong>Category:</strong> {aiSuggestions.category}
+                        </Typography>
+                      )}
+                      {aiSuggestions.description && (
+                        <Typography variant="body2" color="text.secondary">
+                          <strong>Description:</strong> {aiSuggestions.description}
+                        </Typography>
+                      )}
                     </Box>
 
                     <Box sx={{ display: 'flex', gap: 1 }}>
@@ -429,7 +441,7 @@ const AddProduct: React.FC = () => {
                         variant="outlined"
                         size="small"
                         startIcon={<Close />}
-                        onClick={() => setAiSuggestions(prev => ({ ...prev, description: '', category: '' }))}
+                        onClick={() => setAiSuggestions(prev => ({ ...prev, name: '', description: '', category: '' }))}
                       >
                         Dismiss
                       </Button>
