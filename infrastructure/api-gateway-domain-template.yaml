@@ -1,0 +1,62 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: API Gateway custom domain for LPLivings Store
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - prod
+  ApiDomainName:
+    Type: String
+    Description: API domain name
+    Default: api-dev.selfcaretech.com
+  CertificateArn:
+    Type: String
+    Description: ACM Certificate ARN for the API domain (must be in us-east-1)
+  ApiGatewayId:
+    Type: String
+    Description: API Gateway REST API ID
+  ApiGatewayStageName:
+    Type: String
+    Description: API Gateway stage name
+    Default: dev
+
+Resources:
+  # API Gateway Custom Domain
+  ApiGatewayDomainName:
+    Type: AWS::ApiGateway::DomainName
+    Properties:
+      DomainName: !Ref ApiDomainName
+      CertificateArn: !Ref CertificateArn
+      EndpointConfiguration:
+        Types:
+          - EDGE
+      SecurityPolicy: TLS_1_2
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: LPLivings-Store
+
+  # API Gateway Base Path Mapping
+  ApiGatewayBasePathMapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    Properties:
+      DomainName: !Ref ApiGatewayDomainName
+      RestApiId: !Ref ApiGatewayId
+      Stage: !Ref ApiGatewayStageName
+
+Outputs:
+  ApiGatewayDomainName:
+    Description: API Gateway custom domain name
+    Value: !Ref ApiGatewayDomainName
+    Export:
+      Name: !Sub '${AWS::StackName}-ApiDomainName'
+  
+  ApiGatewayDistributionDomainName:
+    Description: API Gateway CloudFront distribution domain name
+    Value: !GetAtt ApiGatewayDomainName.DistributionDomainName
+    Export:
+      Name: !Sub '${AWS::StackName}-ApiDistributionDomainName'

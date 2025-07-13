@@ -124,54 +124,18 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
         aws-region: ${{ env.AWS_REGION }}
 
-    - name: Deploy to existing S3 bucket
+    - name: Deploy to S3
       run: |
-        # Use existing production bucket or create one if it doesn't exist
-        BUCKET_NAME="${{ secrets.FRONTEND_BUCKET_PROD }}"
-        
-        # Check if bucket exists, create if not
-        if ! aws s3 ls "s3://$BUCKET_NAME" 2>&1 | grep -q 'NoSuchBucket'; then
-          echo "Using existing bucket: $BUCKET_NAME"
-        else
-          echo "Creating new bucket: $BUCKET_NAME"
-          aws s3 mb s3://$BUCKET_NAME --region ${{ env.AWS_REGION }}
-          
-          # Configure for static website hosting
-          aws s3 website s3://$BUCKET_NAME --index-document index.html --error-document index.html
-          
-          # Remove public access block
-          aws s3api put-public-access-block \
-            --bucket $BUCKET_NAME \
-            --public-access-block-configuration \
-            BlockPublicAcls=false,IgnorePublicAcls=false,BlockPublicPolicy=false,RestrictPublicBuckets=false
-          
-          # Apply public read policy
-          cat > bucket-policy.json << EOF
-          {
-              "Version": "2012-10-17",
-              "Statement": [
-                  {
-                      "Effect": "Allow",
-                      "Principal": "*",
-                      "Action": "s3:GetObject",
-                      "Resource": "arn:aws:s3:::$BUCKET_NAME/*"
-                  }
-              ]
-          }
-          EOF
-          
-          aws s3api put-bucket-policy --bucket $BUCKET_NAME --policy file://bucket-policy.json
-        fi
-        
-        # Deploy frontend
         cd frontend
-        aws s3 sync build/ s3://$BUCKET_NAME --delete
+        aws s3 sync build/ s3://lplivings-prod-frontend --delete
 
     - name: Output deployment URLs
       run: |
         echo "🚀 Production Deployment Complete!"
-        echo "Frontend URL: http://${{ secrets.FRONTEND_BUCKET_PROD }}.s3-website-${{ env.AWS_REGION }}.amazonaws.com"
+        echo "Frontend URL: http://lplivings-prod-frontend.s3-website-${{ env.AWS_REGION }}.amazonaws.com"
+        echo "Custom Domain: https://lplivings.selfcaretech.com (after DNS setup)"
         echo "Backend API: ${{ needs.deploy-backend.outputs.api-url }}"
+        echo "API Custom Domain: https://api.selfcaretech.com (after DNS setup)"
 
   notify-deployment:
     runs-on: ubuntu-latest
