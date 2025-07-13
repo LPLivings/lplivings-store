@@ -29,14 +29,32 @@ export const getUploadUrl = async (fileExtension: string) => {
 };
 
 export const uploadFile = async (uploadUrl: string, file: File) => {
-  const response = await fetch(uploadUrl, {
-    method: 'PUT',
-    body: file,
-    headers: {
-      'Content-Type': file.type,
-    },
-  });
-  return response.ok;
+  try {
+    console.log('Uploading file:', file.name, 'Size:', file.size, 'Type:', file.type);
+    console.log('Upload URL:', uploadUrl);
+    
+    const response = await fetch(uploadUrl, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': file.type,
+      },
+    });
+    
+    console.log('Upload response status:', response.status);
+    console.log('Upload response headers:', Object.fromEntries(response.headers.entries()));
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Upload failed with status:', response.status, 'Error:', errorText);
+      throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Upload error:', error);
+    throw error;
+  }
 };
 
 export const analyzeImage = async (imageUrl: string) => {

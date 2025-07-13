@@ -169,12 +169,18 @@ const AddProduct: React.FC = () => {
       try {
         setIsUploading(true);
         const fileExtension = file.name.split('.').pop() || 'jpg';
-        const { uploadUrl, imageUrl } = await getUploadUrl(fileExtension);
+        console.log('Getting upload URL for extension:', fileExtension);
         
-        const uploadSuccess = await uploadFile(uploadUrl, file);
+        const { uploadUrl, imageUrl } = await getUploadUrl(fileExtension);
+        console.log('Got upload URL:', uploadUrl);
+        console.log('Image URL will be:', imageUrl);
+        
+        const uploadSuccess = await uploadFile(uploadUrl, compressedFile);
+        console.log('Upload success:', uploadSuccess);
         setIsUploading(false);
         
         if (uploadSuccess) {
+          console.log('Starting AI analysis for:', imageUrl);
           analyzeImageMutation.mutate(imageUrl);
         } else {
           setError('Failed to upload image. Please try again.');
@@ -182,7 +188,8 @@ const AddProduct: React.FC = () => {
       } catch (error) {
         setIsUploading(false);
         console.error('Error uploading for analysis:', error);
-        setError('Failed to upload image. You can still add the product without AI analysis.');
+        console.error('Error details:', error.message);
+        setError(`Failed to upload image: ${error.message}. You can still add the product without AI analysis.`);
       }
     }
   };
@@ -215,15 +222,20 @@ const AddProduct: React.FC = () => {
       let imageUrl = '';
       
       if (image) {
-        const fileExtension = image.name.split('.').pop() || 'jpg';
-        const { uploadUrl, imageUrl: finalImageUrl } = await getUploadUrl(fileExtension);
-        
-        const uploadSuccess = await uploadFile(uploadUrl, image);
-        if (!uploadSuccess) {
-          throw new Error('Failed to upload image');
+        try {
+          const fileExtension = image.name.split('.').pop() || 'jpg';
+          const { uploadUrl, imageUrl: finalImageUrl } = await getUploadUrl(fileExtension);
+          
+          const uploadSuccess = await uploadFile(uploadUrl, image);
+          if (uploadSuccess) {
+            imageUrl = finalImageUrl;
+          } else {
+            console.warn('Image upload failed, continuing without image');
+          }
+        } catch (uploadError) {
+          console.error('Image upload error:', uploadError);
+          // Continue without image rather than failing the entire product creation
         }
-        
-        imageUrl = finalImageUrl;
       }
       
       const productData = {
