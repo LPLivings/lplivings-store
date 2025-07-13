@@ -12,7 +12,7 @@ import { PhotoCamera } from '@mui/icons-material';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
-import { addProduct } from '../services/api';
+import { addProduct, getUploadUrl, uploadFile } from '../services/api';
 
 const AddProduct: React.FC = () => {
   const navigate = useNavigate();
@@ -28,26 +28,34 @@ const AddProduct: React.FC = () => {
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const data = new FormData();
-      data.append('name', formData.name);
-      data.append('description', formData.description);
-      data.append('price', formData.price);
-      data.append('category', formData.category);
-      data.append('userId', user?.id || '');
+      let imageUrl = '';
+      
+      // Upload image first if present
       if (image) {
-        data.append('image', image);
+        const fileExtension = image.name.split('.').pop() || 'jpg';
+        const { uploadUrl, imageUrl: finalImageUrl } = await getUploadUrl(fileExtension);
+        
+        const uploadSuccess = await uploadFile(uploadUrl, image);
+        if (!uploadSuccess) {
+          throw new Error('Failed to upload image');
+        }
+        
+        imageUrl = finalImageUrl;
       }
       
-      console.log('Submitting product:', {
+      // Create product with JSON data
+      const productData = {
         name: formData.name,
         description: formData.description,
         price: formData.price,
         category: formData.category,
-        userId: user?.id,
-        hasImage: !!image
-      });
+        userId: user?.id || '',
+        imageUrl: imageUrl
+      };
       
-      return addProduct(data);
+      console.log('Submitting product:', productData);
+      
+      return addProduct(productData);
     },
     onSuccess: (data) => {
       console.log('Product added successfully:', data);

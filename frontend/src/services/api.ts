@@ -22,10 +22,26 @@ export const getProducts = async () => {
   return response.data;
 };
 
-export const addProduct = async (data: FormData) => {
-  const response = await api.post('/products', data, {
+export const getUploadUrl = async (fileExtension: string) => {
+  const response = await api.get(`/upload-url?ext=${fileExtension}`);
+  return response.data;
+};
+
+export const uploadFile = async (uploadUrl: string, file: File) => {
+  const response = await fetch(uploadUrl, {
+    method: 'PUT',
+    body: file,
     headers: {
-      'Content-Type': 'multipart/form-data',
+      'Content-Type': file.type,
+    },
+  });
+  return response.ok;
+};
+
+export const addProduct = async (productData: any) => {
+  const response = await api.post('/products', productData, {
+    headers: {
+      'Content-Type': 'application/json',
     },
   });
   return response.data;
