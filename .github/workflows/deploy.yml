@@ -46,8 +46,8 @@ jobs:
           cd backend
           sam build
           sam deploy \
-            --stack-name ecommerce-backend-${{ env.ENVIRONMENT }} \
-            --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET }} \
+            --stack-name lplivings-ecommerce-${{ env.ENVIRONMENT }} \
+            --s3-bucket lplivings-sam-deployments-058264492241 \
             --parameter-overrides \
               Environment=${{ env.ENVIRONMENT }} \
               GoogleClientId=${{ secrets.GOOGLE_CLIENT_ID }} \
@@ -61,7 +61,7 @@ jobs:
         id: api-url
         run: |
           API_URL=$(aws cloudformation describe-stacks \
-            --stack-name ecommerce-backend-${{ env.ENVIRONMENT }} \
+            --stack-name lplivings-ecommerce-${{ env.ENVIRONMENT }} \
             --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
             --output text)
           echo "api_url=$API_URL" >> $GITHUB_OUTPUT

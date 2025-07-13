@@ -23,11 +23,7 @@ export const getProducts = async () => {
 };
 
 export const addProduct = async (data: FormData) => {
-  const response = await api.post('/products', data, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+  const response = await api.post('/products', data);
   return response.data;
 };
 

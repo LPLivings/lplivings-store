@@ -16,7 +16,14 @@ def get_sheets_service():
     try:
         google_creds = os.environ.get('GOOGLE_CREDENTIALS', '{}')
         if google_creds == '{}' or not google_creds.strip():
+            print("No Google credentials configured, skipping Sheets integration")
             return None
+            
+        # Check if credentials contain placeholder values
+        if 'placeholder' in google_creds:
+            print("Placeholder Google credentials detected, skipping Sheets integration")
+            return None
+            
         credentials = service_account.Credentials.from_service_account_info(
             json.loads(google_creds),
             scopes=['https://www.googleapis.com/auth/spreadsheets']
@@ -73,7 +80,7 @@ def get_products(headers):
                     'description': 'Comfortable cotton t-shirt',
                     'price': 19.99,
                     'category': 'Clothing',
-                    'image': 'https://via.placeholder.com/300x300/1976d2/white?text=T-Shirt'
+                    'image': 'https://picsum.photos/300/300?random=1'
                 },
                 {
                     'id': 'demo-002',
@@ -81,7 +88,7 @@ def get_products(headers):
                     'description': 'Ceramic coffee mug',
                     'price': 12.99,
                     'category': 'Kitchen',
-                    'image': 'https://via.placeholder.com/300x300/2e7d32/white?text=Mug'
+                    'image': 'https://picsum.photos/300/300?random=2'
                 },
                 {
                     'id': 'demo-003',
@@ -89,7 +96,7 @@ def get_products(headers):
                     'description': 'Learn programming basics',
                     'price': 29.99,
                     'category': 'Books',
-                    'image': 'https://via.placeholder.com/300x300/f57c00/white?text=Book'
+                    'image': 'https://picsum.photos/300/300?random=3'
                 },
                 {
                     'id': 'demo-004',
@@ -97,7 +104,7 @@ def get_products(headers):
                     'description': 'High-quality wireless headphones',
                     'price': 89.99,
                     'category': 'Electronics',
-                    'image': 'https://via.placeholder.com/300x300/9c27b0/white?text=Headphones'
+                    'image': 'https://picsum.photos/300/300?random=4'
                 }
             ]
             
@@ -144,7 +151,7 @@ def get_products(headers):
                 'description': 'Comfortable cotton t-shirt',
                 'price': 19.99,
                 'category': 'Clothing',
-                'image': 'https://via.placeholder.com/300x300/1976d2/white?text=T-Shirt'
+                'image': 'https://picsum.photos/300/300?random=1'
             }
         ]
         
@@ -215,17 +222,28 @@ def add_product(event, headers):
     try:
         product_id = str(uuid.uuid4())
         
+        # Log detailed request information
+        print(f"=== ADD PRODUCT REQUEST DEBUG ===")
+        print(f"Event keys: {list(event.keys())}")
+        print(f"Headers: {event.get('headers', {})}")
+        print(f"Body length: {len(event.get('body', ''))}")
+        print(f"Is Base64 Encoded: {event.get('isBase64Encoded', False)}")
+        
         # Handle multipart form data
         content_type = event.get('headers', {}).get('content-type', '') or event.get('headers', {}).get('Content-Type', '')
+        print(f"Content-Type: {content_type}")
         
         if 'multipart/form-data' in content_type:
             boundary = content_type.split('boundary=')[1] if 'boundary=' in content_type else None
+            print(f"Boundary: {boundary}")
             if boundary:
                 body = event['body']
                 if event.get('isBase64Encoded'):
                     body = base64.b64decode(body).decode('latin1')
                 
                 fields, files = parse_multipart_data(body, boundary)
+                print(f"Parsed fields: {fields}")
+                print(f"Parsed files: {list(files.keys())}")
                 
                 # Extract form fields
                 name = fields.get('name', '')
@@ -233,6 +251,8 @@ def add_product(event, headers):
                 price = fields.get('price', '0')
                 category = fields.get('category', '')
                 user_id = fields.get('userId', '')
+                
+                print(f"Extracted values - name: {name}, description: {description}, price: {price}, category: {category}, userId: {user_id}")
                 
                 # Handle image upload
                 image_url = ''
@@ -264,9 +284,9 @@ def add_product(event, headers):
             image_url = ''
         
         # Add product to Google Sheets (if available)
-        service = get_sheets_service()
-        if service and GOOGLE_SHEETS_ID:
-            try:
+        try:
+            service = get_sheets_service()
+            if service and GOOGLE_SHEETS_ID:
                 sheet = service.spreadsheets()
                 
                 values = [[
@@ -286,9 +306,9 @@ def add_product(event, headers):
                     valueInputOption='RAW',
                     body={'values': values}
                 ).execute()
-            except Exception as sheets_error:
-                print(f"Failed to add to Google Sheets: {sheets_error}")
-                # Continue anyway - the product was uploaded to S3
+        except Exception as sheets_error:
+            print(f"Failed to add to Google Sheets: {sheets_error}")
+            # Continue anyway - the product was uploaded to S3
         
         return {
             'statusCode': 201,
