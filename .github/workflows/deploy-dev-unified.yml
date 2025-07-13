@@ -54,16 +54,27 @@ jobs:
       env:
         GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
       run: |
-        # Create a simplified credentials parameter
-        echo "$GOOGLE_CREDENTIALS" > /tmp/google_creds.json
-        # Validate JSON and compress to single line
-        if jq empty /tmp/google_creds.json 2>/dev/null; then
-          GOOGLE_CREDS_CLEAN=$(jq -c . /tmp/google_creds.json | tr -d '\n\r')
-          echo "GOOGLE_CREDS_PARAM=$GOOGLE_CREDS_CLEAN" >> $GITHUB_ENV
-          echo "✅ Google credentials prepared successfully"
-        else
-          echo "❌ Invalid JSON in Google credentials, using placeholder"
+        # Handle Google credentials more safely
+        if [ -z "$GOOGLE_CREDENTIALS" ] || [ "$GOOGLE_CREDENTIALS" = "{}" ]; then
+          echo "⚠️  No Google credentials provided, using placeholder"
           echo "GOOGLE_CREDS_PARAM={}" >> $GITHUB_ENV
+        else
+          # Write credentials to file safely
+          echo "$GOOGLE_CREDENTIALS" > /tmp/google_creds.json
+          
+          # Validate JSON and show first few characters for debugging
+          if jq empty /tmp/google_creds.json 2>/dev/null; then
+            # Compress to single line with proper escaping
+            GOOGLE_CREDS_CLEAN=$(jq -c . /tmp/google_creds.json)
+            echo "✅ Google credentials validated successfully"
+            echo "Credentials start with: $(echo "$GOOGLE_CREDS_CLEAN" | head -c 50)..."
+            echo "GOOGLE_CREDS_PARAM=$GOOGLE_CREDS_CLEAN" >> $GITHUB_ENV
+          else
+            echo "❌ Invalid JSON in Google credentials"
+            echo "Credentials content preview: $(echo "$GOOGLE_CREDENTIALS" | head -c 100)..."
+            echo "Using placeholder instead"
+            echo "GOOGLE_CREDS_PARAM={}" >> $GITHUB_ENV
+          fi
         fi
 
     - name: SAM Deploy Backend

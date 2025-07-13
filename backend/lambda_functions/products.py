@@ -15,6 +15,8 @@ GOOGLE_SHEETS_ID = os.environ.get('GOOGLE_SHEETS_ID', '')
 def get_sheets_service():
     try:
         google_creds = os.environ.get('GOOGLE_CREDENTIALS', '{}')
+        print(f"Google credentials preview: {google_creds[:50]}...")
+        
         if google_creds == '{}' or not google_creds.strip():
             print("No Google credentials configured, skipping Sheets integration")
             return None
@@ -23,14 +25,26 @@ def get_sheets_service():
         if 'placeholder' in google_creds:
             print("Placeholder Google credentials detected, skipping Sheets integration")
             return None
+        
+        # Validate JSON format
+        try:
+            creds_dict = json.loads(google_creds)
+            print("✅ Google credentials JSON is valid")
+        except json.JSONDecodeError as json_error:
+            print(f"❌ Google credentials JSON is invalid: {json_error}")
+            print(f"Credentials content: {google_creds[:200]}...")
+            return None
             
         credentials = service_account.Credentials.from_service_account_info(
-            json.loads(google_creds),
+            creds_dict,
             scopes=['https://www.googleapis.com/auth/spreadsheets']
         )
-        return build('sheets', 'v4', credentials=credentials)
+        service = build('sheets', 'v4', credentials=credentials)
+        print("✅ Google Sheets service created successfully")
+        return service
     except Exception as e:
-        print(f"Failed to get sheets service: {e}")
+        print(f"❌ Failed to get sheets service: {e}")
+        print(f"Exception type: {type(e)}")
         return None
 
 def lambda_handler(event, context):
