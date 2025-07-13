@@ -349,7 +349,7 @@ const AddProduct: React.FC = () => {
                   >
                     <PhotoCamera sx={{ fontSize: 48, color: 'grey.400' }} />
                     <Typography color="text.secondary">
-                      Take or upload a product photo
+                      Take a photo or choose from gallery
                     </Typography>
                   </Box>
                 )}
@@ -359,7 +359,6 @@ const AddProduct: React.FC = () => {
                   style={{ display: 'none' }}
                   id="image-upload"
                   type="file"
-                  capture="environment"
                   onChange={handleImageChange}
                 />
                 <label htmlFor="image-upload">
