@@ -1,0 +1,148 @@
+name: Deploy E-Commerce App
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set environment
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "ENVIRONMENT=prod" >> $GITHUB_ENV
+          else
+            echo "ENVIRONMENT=dev" >> $GITHUB_ENV
+          fi
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          pip install aws-sam-cli
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: SAM Build and Deploy
+        run: |
+          cd backend
+          sam build
+          sam deploy \
+            --stack-name ecommerce-backend-${{ env.ENVIRONMENT }} \
+            --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET }} \
+            --parameter-overrides \
+              Environment=${{ env.ENVIRONMENT }} \
+              GoogleClientId=${{ secrets.GOOGLE_CLIENT_ID }} \
+              GoogleSheetsId=${{ secrets.GOOGLE_SHEETS_ID }} \
+              GoogleCredentials='${{ secrets.GOOGLE_CREDENTIALS }}' \
+            --capabilities CAPABILITY_IAM \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset
+
+      - name: Get API URL
+        id: api-url
+        run: |
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name ecommerce-backend-${{ env.ENVIRONMENT }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
+            --output text)
+          echo "api_url=$API_URL" >> $GITHUB_OUTPUT
+
+    outputs:
+      api_url: ${{ steps.api-url.outputs.api_url }}
+
+  deploy-frontend:
+    needs: deploy-backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set environment
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "ENVIRONMENT=prod" >> $GITHUB_ENV
+          else
+            echo "ENVIRONMENT=dev" >> $GITHUB_ENV
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Build React app
+        env:
+          REACT_APP_API_URL: ${{ needs.deploy-backend.outputs.api_url }}
+          REACT_APP_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+        run: |
+          cd frontend
+          npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to AWS Amplify
+        run: |
+          # Create or update Amplify app
+          APP_ID=$(aws amplify list-apps --query "apps[?name=='ecommerce-${{ env.ENVIRONMENT }}'].appId" --output text)
+          
+          if [ -z "$APP_ID" ]; then
+            APP_ID=$(aws amplify create-app \
+              --name ecommerce-${{ env.ENVIRONMENT }} \
+              --query 'app.appId' \
+              --output text)
+          fi
+          
+          # Create deployment
+          DEPLOYMENT_ID=$(aws amplify create-deployment \
+            --app-id $APP_ID \
+            --branch-name ${{ env.ENVIRONMENT }} \
+            --query 'jobSummary.jobId' \
+            --output text)
+          
+          # Upload build artifacts
+          cd frontend/build
+          zip -r ../build.zip .
+          cd ..
+          
+          UPLOAD_URL=$(aws amplify get-deployment \
+            --app-id $APP_ID \
+            --branch-name ${{ env.ENVIRONMENT }} \
+            --deployment-id $DEPLOYMENT_ID \
+            --query 'deployment.uploadUrl' \
+            --output text)
+          
+          curl -X PUT -T build.zip "$UPLOAD_URL"
+          
+          # Start deployment
+          aws amplify start-deployment \
+            --app-id $APP_ID \
+            --branch-name ${{ env.ENVIRONMENT }} \
+            --job-id $DEPLOYMENT_ID

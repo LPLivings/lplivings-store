@@ -1,0 +1,148 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: E-Commerce API Backend
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - prod
+  GoogleClientId:
+    Type: String
+    Description: Google OAuth Client ID
+  GoogleSheetsId:
+    Type: String
+    Description: Google Sheets ID for data storage
+  GoogleCredentials:
+    Type: String
+    Description: Google Service Account Credentials (JSON)
+    NoEcho: true
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: python3.9
+    Environment:
+      Variables:
+        ENVIRONMENT: !Ref Environment
+        GOOGLE_CLIENT_ID: !Ref GoogleClientId
+        GOOGLE_SHEETS_ID: !Ref GoogleSheetsId
+        GOOGLE_CREDENTIALS: !Ref GoogleCredentials
+        S3_BUCKET: !Ref ProductImagesBucket
+
+Resources:
+  # S3 Bucket for product images
+  ProductImagesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'ecommerce-product-images-${Environment}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+            AllowedOrigins:
+              - '*'
+
+  # API Gateway
+  ECommerceApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Environment
+      Cors:
+        AllowMethods: "'GET,POST,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowOrigin: "'*'"
+      Auth:
+        DefaultAuthorizer: NONE
+
+  # Lambda Functions
+  ProductsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_functions/
+      Handler: products_simple.lambda_handler
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref ProductImagesBucket
+      Events:
+        GetProducts:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /products
+            Method: GET
+        PostProduct:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /products
+            Method: POST
+        OptionsProducts:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /products
+            Method: OPTIONS
+
+  AuthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_functions/
+      Handler: auth.lambda_handler
+      Events:
+        PostAuth:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /auth
+            Method: POST
+        OptionsAuth:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /auth
+            Method: OPTIONS
+
+  OrdersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_functions/
+      Handler: orders.lambda_handler
+      Events:
+        GetOrders:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /orders
+            Method: GET
+        PostOrder:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /orders
+            Method: POST
+        OptionsOrders:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /orders
+            Method: OPTIONS
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${ECommerceApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+  S3BucketName:
+    Description: S3 bucket for product images
+    Value: !Ref ProductImagesBucket
