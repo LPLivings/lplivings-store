@@ -46,17 +46,18 @@ export const getUploadUrl = async (fileExtension: string) => {
   };
 };
 
-export const uploadFile = async (uploadUrl: string, file: File) => {
+export const uploadFile = async (uploadUrl: string, file: File, contentType?: string) => {
   try {
     console.log('Uploading file:', file.name, 'Size:', file.size, 'Type:', file.type);
     console.log('Upload URL:', uploadUrl);
+    console.log('Expected Content-Type:', contentType || file.type);
     
-    // Don't set Content-Type header at all - let the browser handle it
-    // This avoids signature mismatch issues
     const response = await fetch(uploadUrl, {
       method: 'PUT',
       body: file,
-      // Remove Content-Type header completely
+      headers: {
+        'Content-Type': contentType || file.type,
+      },
     });
     
     console.log('Upload response status:', response.status);

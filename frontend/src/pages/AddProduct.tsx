@@ -171,11 +171,12 @@ const AddProduct: React.FC = () => {
         const fileExtension = file.name.split('.').pop() || 'jpg';
         console.log('Getting upload URL for extension:', fileExtension);
         
-        const { uploadUrl, imageUrl } = await getUploadUrl(fileExtension);
+        const { uploadUrl, imageUrl, contentType } = await getUploadUrl(fileExtension);
         console.log('Got upload URL:', uploadUrl);
         console.log('Image URL will be:', imageUrl);
+        console.log('Expected content type:', contentType);
         
-        const uploadSuccess = await uploadFile(uploadUrl, compressedFile);
+        const uploadSuccess = await uploadFile(uploadUrl, compressedFile, contentType);
         console.log('Upload success:', uploadSuccess);
         setIsUploading(false);
         

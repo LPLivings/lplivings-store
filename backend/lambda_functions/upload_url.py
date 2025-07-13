@@ -38,13 +38,13 @@ def lambda_handler(event, context):
         
         print(f"File extension: {file_extension}, Content-Type: {content_type}")
         
-        # Generate pre-signed URL for upload - be more permissive with content type
+        # Generate pre-signed URL for upload - include ContentType in signature
         presigned_url = s3_client.generate_presigned_url(
             'put_object',
             Params={
                 'Bucket': S3_BUCKET,
                 'Key': filename,
-                # Don't specify ContentType in params to make it more flexible
+                'ContentType': content_type,  # Include ContentType so signature matches browser's automatic header
             },
             ExpiresIn=300  # 5 minutes
         )
@@ -62,7 +62,8 @@ def lambda_handler(event, context):
             'body': json.dumps({
                 'uploadUrl': presigned_url,
                 'imageUrl': image_url,
-                'filename': filename
+                'filename': filename,
+                'contentType': content_type  # Return the expected content type
             })
         }
         
