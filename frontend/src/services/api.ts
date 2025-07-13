@@ -23,9 +23,27 @@ export const getProducts = async () => {
   return response.data;
 };
 
+// Utility function to clean S3 URLs from presigned parameters
+const cleanS3Url = (url: string): string => {
+  try {
+    const urlObj = new URL(url);
+    // Remove AWS query parameters to get direct S3 URL
+    urlObj.search = '';
+    return urlObj.toString();
+  } catch {
+    return url; // Return original if URL parsing fails
+  }
+};
+
 export const getUploadUrl = async (fileExtension: string) => {
   const response = await api.get(`/upload-url?ext=${fileExtension}`);
-  return response.data;
+  const data = response.data;
+  
+  // Ensure we always return clean direct S3 URLs for display
+  return {
+    ...data,
+    imageUrl: cleanS3Url(data.imageUrl)
+  };
 };
 
 export const uploadFile = async (uploadUrl: string, file: File) => {
@@ -33,12 +51,12 @@ export const uploadFile = async (uploadUrl: string, file: File) => {
     console.log('Uploading file:', file.name, 'Size:', file.size, 'Type:', file.type);
     console.log('Upload URL:', uploadUrl);
     
+    // Don't set Content-Type header at all - let the browser handle it
+    // This avoids signature mismatch issues
     const response = await fetch(uploadUrl, {
       method: 'PUT',
       body: file,
-      headers: {
-        'Content-Type': file.type,
-      },
+      // Remove Content-Type header completely
     });
     
     console.log('Upload response status:', response.status);
