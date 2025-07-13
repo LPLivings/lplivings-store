@@ -35,49 +35,42 @@ jobs:
       uses: aws-actions/setup-sam@v2
 
     - name: Check required secrets
+      env:
+        HAS_AWS_KEY: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}
+        HAS_AWS_SECRET: ${{ secrets.AWS_SECRET_ACCESS_KEY != '' }}
+        HAS_SAM_BUCKET: ${{ secrets.SAM_DEPLOYMENT_BUCKET != '' }}
+        HAS_GOOGLE_CLIENT: ${{ secrets.GOOGLE_CLIENT_ID != '' }}
+        HAS_GOOGLE_SHEETS: ${{ secrets.GOOGLE_SHEETS_ID != '' }}
+        HAS_GOOGLE_CREDS: ${{ secrets.GOOGLE_CREDENTIALS != '' }}
+        HAS_STRIPE_KEY: ${{ secrets.STRIPE_SECRET_KEY != '' }}
       run: |
         echo "🔍 Checking deployment requirements..."
         echo "AWS Region: ${{ env.AWS_REGION }}"
         echo "Environment: ${{ env.ENVIRONMENT }}"
+        echo ""
         
-        # Check each secret individually
+        # Check secrets using environment variables to avoid syntax issues
         MISSING_SECRETS=""
         
-        if [[ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ]]; then
-          MISSING_SECRETS="$MISSING_SECRETS AWS_ACCESS_KEY_ID"
-        fi
+        [[ "$HAS_AWS_KEY" != "true" ]] && MISSING_SECRETS="$MISSING_SECRETS AWS_ACCESS_KEY_ID"
+        [[ "$HAS_AWS_SECRET" != "true" ]] && MISSING_SECRETS="$MISSING_SECRETS AWS_SECRET_ACCESS_KEY"
+        [[ "$HAS_SAM_BUCKET" != "true" ]] && MISSING_SECRETS="$MISSING_SECRETS SAM_DEPLOYMENT_BUCKET"
+        [[ "$HAS_GOOGLE_CLIENT" != "true" ]] && MISSING_SECRETS="$MISSING_SECRETS GOOGLE_CLIENT_ID"
+        [[ "$HAS_GOOGLE_SHEETS" != "true" ]] && MISSING_SECRETS="$MISSING_SECRETS GOOGLE_SHEETS_ID"
+        [[ "$HAS_GOOGLE_CREDS" != "true" ]] && MISSING_SECRETS="$MISSING_SECRETS GOOGLE_CREDENTIALS"
         
-        if [[ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]]; then
-          MISSING_SECRETS="$MISSING_SECRETS AWS_SECRET_ACCESS_KEY"
-        fi
-        
-        if [[ -z "${{ secrets.SAM_DEPLOYMENT_BUCKET }}" ]]; then
-          MISSING_SECRETS="$MISSING_SECRETS SAM_DEPLOYMENT_BUCKET"
-        fi
-        
-        if [[ -z "${{ secrets.GOOGLE_CLIENT_ID }}" ]]; then
-          MISSING_SECRETS="$MISSING_SECRETS GOOGLE_CLIENT_ID"
-        fi
-        
-        if [[ -z "${{ secrets.GOOGLE_SHEETS_ID }}" ]]; then
-          MISSING_SECRETS="$MISSING_SECRETS GOOGLE_SHEETS_ID"
-        fi
-        
-        if [[ -z "${{ secrets.GOOGLE_CREDENTIALS }}" ]]; then
-          MISSING_SECRETS="$MISSING_SECRETS GOOGLE_CREDENTIALS"
-        fi
-        
-        # Report status
+        # Report available secrets
         echo "✅ Available secrets:"
-        [[ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ]] && echo "  - AWS_ACCESS_KEY_ID"
-        [[ -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]] && echo "  - AWS_SECRET_ACCESS_KEY"
-        [[ -n "${{ secrets.SAM_DEPLOYMENT_BUCKET }}" ]] && echo "  - SAM_DEPLOYMENT_BUCKET"
-        [[ -n "${{ secrets.GOOGLE_CLIENT_ID }}" ]] && echo "  - GOOGLE_CLIENT_ID"
-        [[ -n "${{ secrets.GOOGLE_SHEETS_ID }}" ]] && echo "  - GOOGLE_SHEETS_ID"
-        [[ -n "${{ secrets.GOOGLE_CREDENTIALS }}" ]] && echo "  - GOOGLE_CREDENTIALS"
-        [[ -n "${{ secrets.STRIPE_SECRET_KEY }}" ]] && echo "  - STRIPE_SECRET_KEY (optional)"
+        [[ "$HAS_AWS_KEY" == "true" ]] && echo "  - AWS_ACCESS_KEY_ID"
+        [[ "$HAS_AWS_SECRET" == "true" ]] && echo "  - AWS_SECRET_ACCESS_KEY"
+        [[ "$HAS_SAM_BUCKET" == "true" ]] && echo "  - SAM_DEPLOYMENT_BUCKET"
+        [[ "$HAS_GOOGLE_CLIENT" == "true" ]] && echo "  - GOOGLE_CLIENT_ID"
+        [[ "$HAS_GOOGLE_SHEETS" == "true" ]] && echo "  - GOOGLE_SHEETS_ID"
+        [[ "$HAS_GOOGLE_CREDS" == "true" ]] && echo "  - GOOGLE_CREDENTIALS"
+        [[ "$HAS_STRIPE_KEY" == "true" ]] && echo "  - STRIPE_SECRET_KEY (optional)"
         
-        if [[ -n "$MISSING_SECRETS" ]]; then
+        # Report missing secrets
+        if [[ -n "${MISSING_SECRETS// }" ]]; then
           echo ""
           echo "❌ Missing required secrets:$MISSING_SECRETS"
           echo ""
@@ -85,8 +78,9 @@ jobs:
           echo "1. Go to: https://github.com/${{ github.repository }}/settings/secrets/actions"
           echo "2. Add the missing secrets"
           echo "3. Check GITHUB-SECRETS-SETUP.md for detailed instructions"
+          echo "4. Or run: ./setup-github-secrets.sh"
           echo ""
-          echo "🔄 For now, continuing with placeholders..."
+          echo "🔄 Continuing with placeholders for missing secrets..."
         else
           echo ""
           echo "✅ All required secrets are configured!"
@@ -97,35 +91,59 @@ jobs:
         cd backend
         sam build
 
-    - name: Deploy to AWS
+    - name: Create deployment parameters
+      env:
+        GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+        GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+        GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+        STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+        SAM_BUCKET: ${{ secrets.SAM_DEPLOYMENT_BUCKET }}
       run: |
         cd backend
         
-        # Set defaults for missing secrets
-        GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}"
-        GOOGLE_SHEETS_ID="${{ secrets.GOOGLE_SHEETS_ID }}"
-        GOOGLE_CREDENTIALS="${{ secrets.GOOGLE_CREDENTIALS }}"
-        STRIPE_SECRET_KEY="${{ secrets.STRIPE_SECRET_KEY }}"
-        SAM_BUCKET="${{ secrets.SAM_DEPLOYMENT_BUCKET }}"
+        # Create parameter file to avoid shell interpretation issues
+        cat > deploy-params.txt << 'EOF'
+Environment=${{ env.ENVIRONMENT }}
+GoogleClientId=${GOOGLE_CLIENT_ID:-placeholder-client-id}
+GoogleSheetsId=${GOOGLE_SHEETS_ID:-placeholder-sheets-id}
+StripeSecretKey=${STRIPE_SECRET_KEY:-placeholder-stripe-key}
+EOF
         
-        # Use placeholders if secrets are missing
-        [[ -z "$GOOGLE_CLIENT_ID" ]] && GOOGLE_CLIENT_ID="placeholder-client-id"
-        [[ -z "$GOOGLE_SHEETS_ID" ]] && GOOGLE_SHEETS_ID="placeholder-sheets-id"
-        [[ -z "$GOOGLE_CREDENTIALS" ]] && GOOGLE_CREDENTIALS="{}"
-        [[ -z "$STRIPE_SECRET_KEY" ]] && STRIPE_SECRET_KEY="placeholder-stripe-key"
-        [[ -z "$SAM_BUCKET" ]] && SAM_BUCKET="default-sam-bucket"
+        # Handle Google Credentials separately to avoid multiline issues
+        if [[ -n "$GOOGLE_CREDENTIALS" ]]; then
+          # Write Google credentials to a temporary file and compress to single line
+          echo "$GOOGLE_CREDENTIALS" | jq -c . >> /tmp/google_creds.json 2>/dev/null || echo "{}" > /tmp/google_creds.json
+          echo "GoogleCredentials=$(cat /tmp/google_creds.json)" >> deploy-params.txt
+        else
+          echo "GoogleCredentials={}" >> deploy-params.txt
+        fi
+        
+        echo "📋 Deployment parameters created:"
+        cat deploy-params.txt
+
+    - name: Deploy to AWS
+      env:
+        SAM_BUCKET: ${{ secrets.SAM_DEPLOYMENT_BUCKET }}
+      run: |
+        cd backend
+        
+        # Set SAM bucket with fallback
+        BUCKET="${SAM_BUCKET:-default-sam-bucket}"
+        
+        # Convert parameter file to SAM format
+        PARAMS=""
+        while IFS= read -r line; do
+          [[ -n "$line" ]] && PARAMS="$PARAMS $line"
+        done < deploy-params.txt
         
         echo "🚀 Deploying with SAM..."
+        echo "Parameters: $PARAMS"
+        
         sam deploy \
           --stack-name lplivings-ecommerce-${{ env.ENVIRONMENT }} \
-          --s3-bucket "$SAM_BUCKET" \
+          --s3-bucket "$BUCKET" \
           --capabilities CAPABILITY_IAM \
-          --parameter-overrides \
-            "Environment=${{ env.ENVIRONMENT }}" \
-            "GoogleClientId=$GOOGLE_CLIENT_ID" \
-            "GoogleSheetsId=$GOOGLE_SHEETS_ID" \
-            "GoogleCredentials=$GOOGLE_CREDENTIALS" \
-            "StripeSecretKey=$STRIPE_SECRET_KEY" \
+          --parameter-overrides $PARAMS \
           --no-confirm-changeset
 
     - name: Get API Gateway URL
