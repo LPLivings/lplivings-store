@@ -188,8 +188,9 @@ const AddProduct: React.FC = () => {
       } catch (error) {
         setIsUploading(false);
         console.error('Error uploading for analysis:', error);
-        console.error('Error details:', error.message);
-        setError(`Failed to upload image: ${error.message}. You can still add the product without AI analysis.`);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        console.error('Error details:', errorMessage);
+        setError(`Failed to upload image: ${errorMessage}. You can still add the product without AI analysis.`);
       }
     }
   };
