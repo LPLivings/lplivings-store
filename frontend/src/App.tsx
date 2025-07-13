@@ -10,6 +10,8 @@ import Products from './pages/Products';
 import Cart from './pages/Cart';
 import Profile from './pages/Profile';
 import AddProduct from './pages/AddProduct';
+import Checkout from './pages/Checkout';
+import Orders from './pages/Orders';
 
 const theme = createTheme({
   palette: {
@@ -46,6 +48,8 @@ function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/products" element={<Products />} />
                 <Route path="/cart" element={<Cart />} />
+                <Route path="/checkout" element={<Checkout />} />
+                <Route path="/orders" element={<Orders />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/add-product" element={<AddProduct />} />
               </Routes>

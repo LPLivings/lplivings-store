@@ -28,7 +28,7 @@ const Cart: React.FC = () => {
       alert('Please login to checkout');
       return;
     }
-    alert('Checkout functionality coming soon!');
+    navigate('/checkout');
   };
 
   if (items.length === 0) {

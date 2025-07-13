@@ -4,6 +4,7 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://api.example.com';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 30000, // 30 seconds timeout
 });
 
 api.interceptors.request.use((config) => {
@@ -38,6 +39,11 @@ export const uploadFile = async (uploadUrl: string, file: File) => {
   return response.ok;
 };
 
+export const analyzeImage = async (imageUrl: string) => {
+  const response = await api.post('/analyze-image', { imageUrl });
+  return response.data;
+};
+
 export const addProduct = async (productData: any) => {
   const response = await api.post('/products', productData, {
     headers: {
@@ -47,12 +53,37 @@ export const addProduct = async (productData: any) => {
   return response.data;
 };
 
-export const getOrders = async () => {
-  const response = await api.get('/orders');
+export const createPaymentIntent = async (paymentData: {
+  amount: number;
+  currency?: string;
+  customerEmail: string;
+  orderDetails: any;
+}) => {
+  const response = await api.post('/create-payment-intent', paymentData);
   return response.data;
 };
 
-export const createOrder = async (items: any[]) => {
-  const response = await api.post('/orders', { items });
+export const confirmPayment = async (paymentData: {
+  paymentIntentId: string;
+  orderDetails: any;
+}) => {
+  const response = await api.post('/confirm-payment', paymentData);
+  return response.data;
+};
+
+export const getOrders = async (userId?: string) => {
+  const params = userId ? { userId } : {};
+  const response = await api.get('/orders', { params });
+  return response.data;
+};
+
+export const createOrder = async (orderData: {
+  userId: string;
+  items: any[];
+  total: number;
+  status?: string;
+  customerInfo?: any;
+}) => {
+  const response = await api.post('/orders', orderData);
   return response.data;
 };

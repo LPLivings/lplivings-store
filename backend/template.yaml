@@ -19,6 +19,10 @@ Parameters:
     Type: String
     Description: Google Service Account Credentials (JSON)
     NoEcho: true
+  StripeSecretKey:
+    Type: String
+    Description: Stripe Secret Key for payment processing
+    NoEcho: true
 
 Globals:
   Function:
@@ -98,6 +102,29 @@ Resources:
             Path: /upload-url
             Method: OPTIONS
 
+  AnalyzeImageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_functions/
+      Handler: analyze_image.lambda_handler
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref ProductImagesBucket
+        - RekognitionDetectOnlyPolicy: {}
+      Events:
+        AnalyzeImage:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /analyze-image
+            Method: POST
+        OptionsAnalyzeImage:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /analyze-image
+            Method: OPTIONS
+
   ProductsFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -143,6 +170,40 @@ Resources:
           Properties:
             RestApiId: !Ref ECommerceApi
             Path: /auth
+            Method: OPTIONS
+
+  PaymentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_functions/
+      Handler: payment.lambda_handler
+      Environment:
+        Variables:
+          STRIPE_SECRET_KEY: !Ref StripeSecretKey
+      Events:
+        CreatePaymentIntent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /create-payment-intent
+            Method: POST
+        ConfirmPayment:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /confirm-payment
+            Method: POST
+        OptionsPayment1:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /create-payment-intent
+            Method: OPTIONS
+        OptionsPayment2:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /confirm-payment
             Method: OPTIONS
 
   OrdersFunction:

@@ -1,6 +1,6 @@
 import React from 'react';
 import { AppBar, Toolbar, Typography, Button, Box, IconButton, Badge } from '@mui/material';
-import { ShoppingCart, AccountCircle } from '@mui/icons-material';
+import { ShoppingCart, AccountCircle, Receipt } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useGoogleLogin } from '@react-oauth/google';
 import useAuthStore from '../store/authStore';
@@ -60,6 +60,16 @@ const Header: React.FC = () => {
               <ShoppingCart />
             </Badge>
           </IconButton>
+          
+          {user && (
+            <IconButton
+              color="inherit"
+              onClick={() => navigate('/orders')}
+              sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
+            >
+              <Receipt />
+            </IconButton>
+          )}
           
           {user ? (
             <>

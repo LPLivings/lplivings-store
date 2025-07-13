@@ -1,0 +1,33 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "cloudfront:CreateDistribution",
+                "cloudfront:UpdateDistribution",
+                "cloudfront:GetDistribution",
+                "cloudfront:GetDistributionConfig",
+                "cloudfront:ListDistributions",
+                "cloudfront:DeleteDistribution",
+                "cloudfront:CreateOriginAccessControl",
+                "cloudfront:UpdateOriginAccessControl",
+                "cloudfront:GetOriginAccessControl",
+                "cloudfront:ListOriginAccessControls",
+                "cloudfront:DeleteOriginAccessControl",
+                "cloudfront:TagResource",
+                "cloudfront:UntagResource",
+                "cloudfront:ListTagsForResource"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow", 
+            "Action": [
+                "s3:PutBucketPolicy",
+                "s3:GetBucketPolicy"
+            ],
+            "Resource": "*"
+        }
+    ]
+}

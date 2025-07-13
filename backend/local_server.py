@@ -8,6 +8,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import json
 import os
+import random
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -80,7 +81,7 @@ def products():
             'description': data.get('description', ''),
             'price': float(data.get('price', 0)),
             'category': data.get('category', 'General'),
-            'image': 'https://via.placeholder.com/300x300/607d8b/white?text=New+Product'
+            'image': data.get('imageUrl', 'https://via.placeholder.com/300x300/607d8b/white?text=New+Product')
         }
         sample_products.append(new_product)
         return jsonify({'id': new_product['id'], 'message': 'Product added successfully'}), 201
@@ -126,6 +127,58 @@ def orders():
             'total': total
         }), 201
 
+@app.route('/upload-url', methods=['GET', 'OPTIONS'])
+def upload_url():
+    if request.method == 'OPTIONS':
+        return '', 200
+        
+    # Mock upload URL for local development
+    file_ext = request.args.get('ext', 'jpg')
+    mock_key = f'uploads/product-{os.urandom(8).hex()}.{file_ext}'
+    
+    return jsonify({
+        'uploadUrl': f'http://localhost:3002/mock-upload?key={mock_key}',
+        'imageUrl': f'https://via.placeholder.com/400x400/1976d2/white?text=Uploaded+Image'
+    })
+
+@app.route('/mock-upload', methods=['PUT', 'OPTIONS'])
+def mock_upload():
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    # Mock successful upload
+    return '', 200
+
+@app.route('/analyze-image', methods=['POST', 'OPTIONS'])
+def analyze_image():
+    if request.method == 'OPTIONS':
+        return '', 200
+        
+    data = request.get_json()
+    image_url = data.get('imageUrl', '')
+    
+    # Simulate processing time (reduced for better UX)
+    import time
+    time.sleep(0.5)  # Reduced from potential long delays
+    
+    # Mock AI analysis response
+    import random
+    categories = ['Electronics', 'Clothing', 'Home & Garden', 'Kitchen', 'Books', 'Sports', 'Beauty', 'Toys']
+    descriptions = [
+        'High-quality product with excellent build materials',
+        'Stylish and functional item perfect for everyday use',
+        'Durable and reliable product with modern design',
+        'Premium quality item with great value for money',
+        'Versatile product suitable for various applications'
+    ]
+    
+    return jsonify({
+        'category': random.choice(categories),
+        'description': random.choice(descriptions),
+        'labels': ['product', 'commercial', 'item'],
+        'confidence': 0.95
+    })
+
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({'status': 'healthy', 'message': 'Local development server running'})
@@ -136,6 +189,8 @@ if __name__ == '__main__':
     print("🔗 Endpoints:")
     print("   GET  /products - List products")
     print("   POST /products - Add product")
+    print("   GET  /upload-url - Get upload URL")
+    print("   POST /analyze-image - Analyze image")
     print("   POST /auth - Authenticate user")
     print("   GET  /orders - List orders")
     print("   POST /orders - Create order")

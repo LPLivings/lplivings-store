@@ -8,14 +8,20 @@ import {
   List,
   ListItem,
   ListItemText,
+  ListItemIcon,
   Divider,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { Add, History, Inventory } from '@mui/icons-material';
 import useAuthStore from '../store/authStore';
 
 const Profile: React.FC = () => {
   const navigate = useNavigate();
   const { user, clearUser } = useAuthStore();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   if (!user) {
     return (
@@ -36,47 +42,125 @@ const Profile: React.FC = () => {
   };
 
   return (
-    <Box>
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+    <Box sx={{ px: { xs: 1, md: 0 } }}>
+      <Paper sx={{ p: { xs: 2, md: 3 }, mb: 3, borderRadius: 2 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          mb: 3,
+          flexDirection: isMobile ? 'column' : 'row',
+          textAlign: isMobile ? 'center' : 'left'
+        }}>
           <Avatar
             src={user.picture}
-            sx={{ width: 100, height: 100, mr: 3 }}
+            sx={{ 
+              width: { xs: 80, md: 100 }, 
+              height: { xs: 80, md: 100 }, 
+              mr: { xs: 0, md: 3 },
+              mb: { xs: 2, md: 0 }
+            }}
           />
           <Box>
-            <Typography variant="h5">{user.name}</Typography>
-            <Typography color="text.secondary">{user.email}</Typography>
+            <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold">
+              {user.name}
+            </Typography>
+            <Typography color="text.secondary" variant={isMobile ? "body2" : "body1"}>
+              {user.email}
+            </Typography>
           </Box>
         </Box>
         
-        <Button variant="outlined" color="error" onClick={handleLogout}>
+        <Button 
+          variant="outlined" 
+          color="error" 
+          onClick={handleLogout}
+          fullWidth={isMobile}
+          size={isMobile ? "medium" : "large"}
+        >
           Logout
         </Button>
       </Paper>
 
-      <Paper sx={{ p: 3 }}>
-        <Typography variant="h6" gutterBottom>
+      <Paper sx={{ p: { xs: 2, md: 3 }, borderRadius: 2 }}>
+        <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>
           Account Actions
         </Typography>
-        <List>
-          <ListItem component="button" onClick={() => navigate('/add-product')} sx={{ cursor: 'pointer' }}>
+        <List sx={{ pt: 0 }}>
+          <ListItem 
+            component="button" 
+            onClick={() => navigate('/add-product')} 
+            sx={{ 
+              cursor: 'pointer',
+              borderRadius: 1,
+              '&:hover': { bgcolor: 'action.hover' },
+              py: { xs: 1.5, md: 2 }
+            }}
+          >
+            <ListItemIcon>
+              <Add color="primary" />
+            </ListItemIcon>
             <ListItemText
               primary="Add New Product"
               secondary="Contribute to our crowdsourced inventory"
+              primaryTypographyProps={{ 
+                variant: isMobile ? "body1" : "subtitle1",
+                fontWeight: 'medium'
+              }}
+              secondaryTypographyProps={{ 
+                variant: "body2" 
+              }}
             />
           </ListItem>
           <Divider />
-          <ListItem component="button" sx={{ cursor: 'pointer' }}>
+          <ListItem 
+            component="button" 
+            onClick={() => navigate('/orders')}
+            sx={{ 
+              cursor: 'pointer',
+              borderRadius: 1,
+              '&:hover': { bgcolor: 'action.hover' },
+              py: { xs: 1.5, md: 2 }
+            }}
+          >
+            <ListItemIcon>
+              <History color="primary" />
+            </ListItemIcon>
             <ListItemText
               primary="Order History"
-              secondary="View your past orders (Coming soon)"
+              secondary="View your past orders and track shipments"
+              primaryTypographyProps={{ 
+                variant: isMobile ? "body1" : "subtitle1",
+                fontWeight: 'medium'
+              }}
+              secondaryTypographyProps={{ 
+                variant: "body2" 
+              }}
             />
           </ListItem>
           <Divider />
-          <ListItem component="button" sx={{ cursor: 'pointer' }}>
+          <ListItem 
+            component="button" 
+            sx={{ 
+              cursor: 'pointer',
+              borderRadius: 1,
+              '&:hover': { bgcolor: 'action.hover' },
+              py: { xs: 1.5, md: 2 }
+            }}
+          >
+            <ListItemIcon>
+              <Inventory color="primary" />
+            </ListItemIcon>
             <ListItemText
               primary="My Products"
               secondary="Manage products you've added (Coming soon)"
+              primaryTypographyProps={{ 
+                variant: isMobile ? "body1" : "subtitle1",
+                fontWeight: 'medium'
+              }}
+              secondaryTypographyProps={{ 
+                variant: "body2",
+                color: 'text.disabled'
+              }}
             />
           </ListItem>
         </List>
