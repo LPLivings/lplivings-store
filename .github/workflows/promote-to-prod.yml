@@ -81,7 +81,7 @@ jobs:
     - name: Validate SAM template
       run: |
         cd backend
-        sam validate
+        sam validate --region us-east-1
 
   promote-to-main:
     runs-on: ubuntu-latest
