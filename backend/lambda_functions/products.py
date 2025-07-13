@@ -15,7 +15,7 @@ GOOGLE_SHEETS_ID = os.environ.get('GOOGLE_SHEETS_ID', '')
 def get_sheets_service():
     try:
         google_creds = os.environ.get('GOOGLE_CREDENTIALS', '{}')
-        print(f"Google credentials preview: {google_creds[:50]}...")
+        print(f"Google credentials preview: {google_creds[:50]}... (length: {len(google_creds)})")
         
         if google_creds == '{}' or not google_creds.strip():
             print("No Google credentials configured, skipping Sheets integration")
