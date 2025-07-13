@@ -168,8 +168,16 @@ const AddProduct: React.FC = () => {
       // Upload image and analyze
       try {
         setIsUploading(true);
-        const fileExtension = file.name.split('.').pop() || 'jpg';
-        console.log('Getting upload URL for extension:', fileExtension);
+        // Get file extension from MIME type, not filename
+        const mimeToExt: { [key: string]: string } = {
+          'image/jpeg': 'jpg',
+          'image/jpg': 'jpg', 
+          'image/png': 'png',
+          'image/webp': 'webp',
+          'image/gif': 'gif'
+        };
+        const fileExtension = mimeToExt[compressedFile.type] || 'jpg';
+        console.log('File type:', compressedFile.type, 'Extension:', fileExtension);
         
         const { uploadUrl, imageUrl, contentType } = await getUploadUrl(fileExtension);
         console.log('Got upload URL:', uploadUrl);

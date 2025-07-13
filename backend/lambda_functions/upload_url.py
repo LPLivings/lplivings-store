@@ -36,6 +36,14 @@ def lambda_handler(event, context):
         }
         content_type = content_type_map.get(file_extension.lower(), 'image/jpeg')
         
+        # Ensure consistent filename extension matches content type
+        if content_type == 'image/jpeg' and not filename.lower().endswith(('.jpg', '.jpeg')):
+            filename = f"products/{str(uuid.uuid4())}.jpg"
+        elif content_type == 'image/png' and not filename.lower().endswith('.png'):
+            filename = f"products/{str(uuid.uuid4())}.png"
+        elif content_type == 'image/webp' and not filename.lower().endswith('.webp'):
+            filename = f"products/{str(uuid.uuid4())}.webp"
+        
         print(f"File extension: {file_extension}, Content-Type: {content_type}")
         
         # Generate pre-signed URL for upload - include ContentType in signature
