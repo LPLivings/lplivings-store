@@ -1,0 +1,139 @@
+name: Promote Dev to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_branch:
+        description: 'Source branch to promote (usually dev)'
+        required: true
+        default: 'dev'
+      confirm_promotion:
+        description: 'Type "PROMOTE" to confirm promotion to production'
+        required: true
+        default: 'NO'
+
+jobs:
+  validate-promotion:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Validate promotion confirmation
+      run: |
+        if [ "${{ github.event.inputs.confirm_promotion }}" != "PROMOTE" ]; then
+          echo "❌ Production promotion not confirmed. Please type 'PROMOTE' to proceed."
+          exit 1
+        fi
+        echo "✅ Production promotion confirmed"
+
+    - name: Checkout source branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.inputs.source_branch }}
+
+    - name: Verify source branch exists
+      run: |
+        if ! git show-ref --verify --quiet refs/heads/${{ github.event.inputs.source_branch }}; then
+          echo "❌ Source branch '${{ github.event.inputs.source_branch }}' does not exist"
+          exit 1
+        fi
+        echo "✅ Source branch '${{ github.event.inputs.source_branch }}' verified"
+
+  run-tests:
+    runs-on: ubuntu-latest
+    needs: validate-promotion
+    steps:
+    - name: Checkout source branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.inputs.source_branch }}
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm ci
+
+    - name: Run frontend tests
+      run: |
+        cd frontend
+        npm test -- --coverage --watchAll=false
+
+    - name: Build frontend to verify
+      run: |
+        cd frontend
+        npm run build
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        pip install -r requirements.txt
+
+    - name: Validate SAM template
+      run: |
+        cd backend
+        sam validate
+
+  promote-to-main:
+    runs-on: ubuntu-latest
+    needs: [validate-promotion, run-tests]
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Configure Git
+      run: |
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+
+    - name: Merge source branch to main
+      run: |
+        git checkout main
+        git pull origin main
+        git merge origin/${{ github.event.inputs.source_branch }} --no-ff -m "Promote ${{ github.event.inputs.source_branch }} to production"
+        git push origin main
+
+    - name: Create release tag
+      run: |
+        TAG_NAME="v$(date +%Y%m%d-%H%M%S)"
+        git tag -a $TAG_NAME -m "Production release from ${{ github.event.inputs.source_branch }}"
+        git push origin $TAG_NAME
+        echo "Created release tag: $TAG_NAME"
+
+  trigger-production-deployment:
+    runs-on: ubuntu-latest
+    needs: promote-to-main
+    steps:
+    - name: Trigger production deployment
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const result = await github.rest.actions.createWorkflowDispatch({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            workflow_id: 'deploy-prod.yml',
+            ref: 'main',
+            inputs: {
+              confirm_production: 'DEPLOY'
+            }
+          });
+          console.log('Triggered production deployment workflow');
+
+    - name: Notify promotion complete
+      run: |
+        echo "🚀 Promotion complete!"
+        echo "✅ Code merged from ${{ github.event.inputs.source_branch }} to main"
+        echo "✅ Production deployment triggered"
+        echo "🔗 Check the Actions tab for deployment progress"

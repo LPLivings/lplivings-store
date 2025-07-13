@@ -7,7 +7,6 @@ import {
   Paper,
   CircularProgress,
   Alert,
-  Input,
 } from '@mui/material';
 import { PhotoCamera } from '@mui/icons-material';
 import { useMutation } from '@tanstack/react-query';
@@ -38,10 +37,24 @@ const AddProduct: React.FC = () => {
       if (image) {
         data.append('image', image);
       }
+      
+      console.log('Submitting product:', {
+        name: formData.name,
+        description: formData.description,
+        price: formData.price,
+        category: formData.category,
+        userId: user?.id,
+        hasImage: !!image
+      });
+      
       return addProduct(data);
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Product added successfully:', data);
       navigate('/products');
+    },
+    onError: (error) => {
+      console.error('Failed to add product:', error);
     },
   });
 

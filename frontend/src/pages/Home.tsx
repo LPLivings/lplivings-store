@@ -10,7 +10,7 @@ const Home: React.FC = () => {
     <Box>
       <Box sx={{ textAlign: 'center', py: 4 }}>
         <Typography variant="h3" component="h1" gutterBottom>
-          Welcome to E-Shop
+          Welcome to LPLivings Store
         </Typography>
         <Typography variant="h6" color="text.secondary" paragraph>
           Crowdsourced marketplace for unique items

@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# Quick GitHub Secrets Setup Template
+echo "🔐 GitHub Secrets Setup Template"
+echo ""
+echo "⚠️  SECURITY WARNING: Never commit AWS credentials to Git!"
+echo ""
+echo "To set up GitHub secrets, use the interactive script instead:"
+echo "  ./scripts/setup-github-secrets.sh"
+echo ""
+echo "Or set them manually at:"
+echo "  https://github.com/LPLivings/lplivings-store/settings/secrets/actions"
+echo ""
+echo "Required secrets:"
+echo "  - AWS_ACCESS_KEY_ID"
+echo "  - AWS_SECRET_ACCESS_KEY" 
+echo "  - SAM_DEPLOYMENT_BUCKET"
+echo "  - GOOGLE_CLIENT_ID"
+echo "  - GOOGLE_SHEETS_ID"
+echo "  - GOOGLE_CREDENTIALS"
+echo ""
+echo "For production environment, add '_PROD' suffix to secret names."

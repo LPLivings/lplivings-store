@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: E-Commerce API Backend
+Description: LPLivings Store API Backend
 
 Parameters:
   Environment:
@@ -31,13 +31,16 @@ Globals:
         GOOGLE_SHEETS_ID: !Ref GoogleSheetsId
         GOOGLE_CREDENTIALS: !Ref GoogleCredentials
         S3_BUCKET: !Ref ProductImagesBucket
+    Tags:
+      Project: LPLivings-Store
+      Environment: !Ref Environment
 
 Resources:
   # S3 Bucket for product images
   ProductImagesBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub 'ecommerce-product-images-${Environment}'
+      BucketName: !Sub 'lplivings-product-images-${Environment}-${AWS::AccountId}'
       PublicAccessBlockConfiguration:
         BlockPublicAcls: false
         BlockPublicPolicy: false
@@ -53,6 +56,11 @@ Resources:
               - POST
             AllowedOrigins:
               - '*'
+      Tags:
+        - Key: Project
+          Value: LPLivings-Store
+        - Key: Environment
+          Value: !Ref Environment
 
   # API Gateway
   ECommerceApi:
@@ -71,7 +79,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: lambda_functions/
-      Handler: products_simple.lambda_handler
+      Handler: products.lambda_handler
       Policies:
         - S3CrudPolicy:
             BucketName: !Ref ProductImagesBucket
