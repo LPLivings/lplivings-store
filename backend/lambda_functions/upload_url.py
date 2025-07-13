@@ -38,7 +38,11 @@ def lambda_handler(event, context):
         )
         
         # Return pre-signed URL and final image URL
+        # Use direct S3 URL since bucket has public read access
         image_url = f"https://{S3_BUCKET}.s3.amazonaws.com/{filename}"
+        
+        print(f"Generated upload URL for: {filename}")
+        print(f"Direct image URL: {image_url}")
         
         return {
             'statusCode': 200,
