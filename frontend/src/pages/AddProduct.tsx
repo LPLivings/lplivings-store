@@ -428,22 +428,25 @@ const AddProduct: React.FC = () => {
                       )}
                     </Box>
 
-                    <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Box sx={{ display: 'flex', gap: 1, flexDirection: isMobile ? 'column' : 'row' }}>
                       <Button
                         variant="contained"
-                        size="small"
+                        size={isMobile ? "medium" : "small"}
                         startIcon={<Check />}
                         onClick={applySuggestions}
+                        fullWidth={isMobile}
+                        sx={{ fontWeight: 'bold' }}
                       >
-                        Apply Suggestions
+                        Use AI Suggestions
                       </Button>
                       <Button
                         variant="outlined"
-                        size="small"
+                        size={isMobile ? "medium" : "small"}
                         startIcon={<Close />}
                         onClick={() => setAiSuggestions(prev => ({ ...prev, name: '', description: '', category: '' }))}
+                        fullWidth={isMobile}
                       >
-                        Dismiss
+                        Fill Manually
                       </Button>
                     </Box>
                   </Box>
@@ -458,6 +461,13 @@ const AddProduct: React.FC = () => {
               <Typography variant="h6" gutterBottom>
                 Product Details
               </Typography>
+              
+              {/* Helpful hint when AI suggestions are available */}
+              {(aiSuggestions.name || aiSuggestions.description) && !aiSuggestions.applied && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  💡 <strong>Tip:</strong> Click "Use AI Suggestions" above to auto-fill these fields, or fill them manually.
+                </Alert>
+              )}
               
               <Stack spacing={2}>
                 <TextField
