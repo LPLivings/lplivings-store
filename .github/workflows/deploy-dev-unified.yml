@@ -151,6 +151,7 @@ jobs:
       env:
         REACT_APP_API_URL: ${{ steps.api-url.outputs.api-url }}
         REACT_APP_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+        REACT_APP_ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
         REACT_APP_BUILD_SHA: ${{ github.sha }}
         REACT_APP_BUILD_TIMESTAMP: ${{ github.event.head_commit.timestamp }}
         REACT_APP_BUILD_BRANCH: ${{ github.ref_name }}
