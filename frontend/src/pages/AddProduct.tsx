@@ -256,13 +256,15 @@ const AddProduct: React.FC = () => {
       console.log('Product creation result:', result);
       return result;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       setSuccess('Product added successfully!');
       // Invalidate products query to refetch the latest data
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      setTimeout(() => {
+      await queryClient.invalidateQueries({ queryKey: ['products'] });
+      // Wait a moment for S3 to be consistent, then refetch
+      setTimeout(async () => {
+        await queryClient.refetchQueries({ queryKey: ['products'] });
         navigate('/products');
-      }, 1500);
+      }, 2000);
     },
     onError: (error: any) => {
       console.error('Product creation failed:', error);

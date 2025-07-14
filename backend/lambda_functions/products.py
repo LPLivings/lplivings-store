@@ -273,7 +273,7 @@ def add_product(event, headers):
                 'id': product_id,
                 'name': name,
                 'description': description,
-                'price': float(price) if price.replace('.','').isdigit() else 0.0,
+                'price': float(price) if isinstance(price, (int, float)) or (isinstance(price, str) and price.replace('.','').isdigit()) else 0.0,
                 'category': category,
                 'image': image_url,
                 'userId': user_id,
