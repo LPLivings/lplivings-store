@@ -126,6 +126,12 @@ export const createOrder = async (orderData: {
 };
 
 export const deleteProduct = async (productId: string) => {
-  const response = await api.delete(`/products/${productId}`);
+  // Check if admin mode is enabled via URL parameter
+  const urlParams = new URLSearchParams(window.location.search);
+  const isAdminMode = urlParams.get('admin') === 'true';
+  
+  // Add admin parameter to the request if enabled
+  const params = isAdminMode ? { admin: 'true' } : {};
+  const response = await api.delete(`/products/${productId}`, { params });
   return response.data;
 };

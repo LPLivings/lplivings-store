@@ -345,10 +345,15 @@ def is_admin_user(email):
 def delete_product(event, headers):
     """Delete a product (admin only)"""
     try:
+        # Check for admin URL parameter first
+        query_params = event.get('queryStringParameters') or {}
+        is_admin_via_url = query_params.get('admin') == 'true'
+        
         # Extract user email from token
         user_email = get_user_email_from_token(event)
         
-        if not is_admin_user(user_email):
+        # Allow access if admin URL parameter is set OR user is in admin email list
+        if not (is_admin_via_url or is_admin_user(user_email)):
             return {
                 'statusCode': 403,
                 'headers': headers,
