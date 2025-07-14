@@ -96,11 +96,11 @@ const WalletPaymentButton: React.FC<WalletPaymentButtonProps> = ({
                 phone: event.payerPhone || customerInfo.phone,
                 // Use shipping address from wallet if provided
                 ...(event.shippingAddress ? {
-                  address: `${event.shippingAddress.line1}${event.shippingAddress.line2 ? ' ' + event.shippingAddress.line2 : ''}`,
-                  city: event.shippingAddress.city,
-                  state: event.shippingAddress.state,
-                  zipCode: event.shippingAddress.postal_code,
-                  country: event.shippingAddress.country,
+                  address: `${(event.shippingAddress as any).line1 || ''}${(event.shippingAddress as any).line2 ? ' ' + (event.shippingAddress as any).line2 : ''}`,
+                  city: (event.shippingAddress as any).city || '',
+                  state: (event.shippingAddress as any).state || '',
+                  zipCode: (event.shippingAddress as any).postal_code || '',
+                  country: event.shippingAddress.country || 'US',
                 } : {}),
               }
             }
