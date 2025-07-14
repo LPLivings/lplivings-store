@@ -310,6 +310,7 @@ const CheckoutNew: React.FC = () => {
                   <Elements stripe={stripePromise} options={{ clientSecret: paymentIntentClientSecret }}>
                     <StripePaymentForm
                       amount={totalAmountCents}
+                      customerInfo={customerInfo}
                       onSuccess={handlePaymentSuccess}
                       onError={(error) => {
                         console.error('Payment error:', error);
@@ -435,8 +436,10 @@ const CheckoutNew: React.FC = () => {
 
                 {process.env.REACT_APP_ENVIRONMENT === 'dev' && (
                   <Alert severity="info" sx={{ mt: 2 }}>
-                    <Typography variant="caption">
-                      Test mode - Use card 4242 4242 4242 4242
+                    <Typography variant="caption" component="div">
+                      <strong>Test mode:</strong>
+                      <br />• Use card 4242 4242 4242 4242
+                      <br />• Try Apple Pay/Google Pay if available on your device
                     </Typography>
                   </Alert>
                 )}

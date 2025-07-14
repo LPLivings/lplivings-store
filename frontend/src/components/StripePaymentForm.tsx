@@ -11,17 +11,29 @@ import {
   Alert,
   Typography
 } from '@mui/material';
+import WalletPaymentButton from './WalletPaymentButton';
 
 interface StripePaymentFormProps {
   onSuccess: (paymentIntentId: string) => void;
   onError: (error: string) => void;
   amount: number;
+  customerInfo?: {
+    name: string;
+    email: string;
+    phone?: string;
+    address: string;
+    city: string;
+    state?: string;
+    zipCode: string;
+    country: string;
+  };
 }
 
 const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
   onSuccess,
   onError,
-  amount
+  amount,
+  customerInfo
 }) => {
   const stripe = useStripe();
   const elements = useElements();
@@ -77,6 +89,18 @@ const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
         <Typography variant="body1" gutterBottom sx={{ mb: 2 }}>
           Total Amount: <strong>${(amount / 100).toFixed(2)}</strong>
         </Typography>
+
+        {/* Digital Wallet Payment Options */}
+        {customerInfo && (
+          <WalletPaymentButton
+            amount={amount}
+            currency="usd"
+            country={customerInfo.country || 'US'}
+            customerInfo={customerInfo}
+            onSuccess={onSuccess}
+            onError={onError}
+          />
+        )}
         
         <PaymentElement 
           options={{
