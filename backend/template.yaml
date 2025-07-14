@@ -78,7 +78,7 @@ Resources:
     Properties:
       StageName: !Ref Environment
       Cors:
-        AllowMethods: "'GET,POST,DELETE,OPTIONS'"
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,Authorization'"
         AllowOrigin: "'*'"
       Auth:
@@ -227,7 +227,10 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: lambda_functions/
-      Handler: orders.lambda_handler
+      Handler: orders_new.lambda_handler
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref ProductImagesBucket
       Events:
         GetOrders:
           Type: Api
@@ -241,11 +244,23 @@ Resources:
             RestApiId: !Ref ECommerceApi
             Path: /orders
             Method: POST
+        UpdateOrderStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /orders/{id}
+            Method: PUT
         OptionsOrders:
           Type: Api
           Properties:
             RestApiId: !Ref ECommerceApi
             Path: /orders
+            Method: OPTIONS
+        OptionsOrdersId:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /orders/{id}
             Method: OPTIONS
 
 Outputs:

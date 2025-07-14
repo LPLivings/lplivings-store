@@ -1,6 +1,6 @@
 import React from 'react';
 import { AppBar, Toolbar, Typography, Button, Box, IconButton, Badge } from '@mui/material';
-import { ShoppingCart, AccountCircle, Receipt } from '@mui/icons-material';
+import { ShoppingCart, AccountCircle, Receipt, AdminPanelSettings } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useGoogleLogin } from '@react-oauth/google';
 import useAuthStore from '../store/authStore';
@@ -8,7 +8,7 @@ import useCartStore from '../store/cartStore';
 
 const Header: React.FC = () => {
   const navigate = useNavigate();
-  const { user, setUser, clearUser } = useAuthStore();
+  const { user, setUser, clearUser, isAdmin } = useAuthStore();
   const { items } = useCartStore();
 
   const login = useGoogleLogin({
@@ -68,6 +68,17 @@ const Header: React.FC = () => {
               sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
             >
               <Receipt />
+            </IconButton>
+          )}
+
+          {isAdmin() && (
+            <IconButton
+              color="inherit"
+              onClick={() => navigate('/admin/orders')}
+              sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
+              title="Admin Orders"
+            >
+              <AdminPanelSettings />
             </IconButton>
           )}
           

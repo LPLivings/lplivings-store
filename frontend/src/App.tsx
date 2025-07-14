@@ -4,6 +4,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GoogleOAuthProvider } from '@react-oauth/google';
+import { loadStripe } from '@stripe/stripe-js';
 import Layout from './components/Layout';
 import BuildInfo from './components/BuildInfo';
 import DebugOverlay from './components/DebugOverlay';
@@ -12,8 +13,12 @@ import Products from './pages/Products';
 import Cart from './pages/Cart';
 import Profile from './pages/Profile';
 import AddProduct from './pages/AddProduct';
-import Checkout from './pages/Checkout';
+import Checkout from './pages/CheckoutNew';
 import Orders from './pages/Orders';
+import AdminOrders from './pages/AdminOrders';
+
+// Initialize Stripe with publishable key
+const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || '');
 
 const theme = createTheme({
   palette: {
@@ -53,6 +58,7 @@ function App() {
                 <Route path="/cart" element={<Cart />} />
                 <Route path="/checkout" element={<Checkout />} />
                 <Route path="/orders" element={<Orders />} />
+                <Route path="/admin/orders" element={<AdminOrders />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/add-product" element={<AddProduct />} />
               </Routes>
@@ -67,3 +73,4 @@ function App() {
 }
 
 export default App;
+export { stripePromise };
