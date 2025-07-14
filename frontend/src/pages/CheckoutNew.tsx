@@ -67,6 +67,10 @@ const CheckoutNew: React.FC = () => {
   // Create payment intent when reaching payment step
   const createPaymentMutation = useMutation({
     mutationFn: async () => {
+      console.log('Creating payment intent...');
+      console.log('Customer info:', customerInfo);
+      console.log('Total amount cents:', totalAmountCents);
+      
       const orderDetails = {
         orderId: `order_${Date.now()}`,
         customerId: user?.id || '',
@@ -83,6 +87,8 @@ const CheckoutNew: React.FC = () => {
         shippingInfo: customerInfo
       };
 
+      console.log('Order details:', orderDetails);
+
       const response = await createPaymentIntent({
         amount: totalAmountCents,
         currency: 'usd',
@@ -90,15 +96,20 @@ const CheckoutNew: React.FC = () => {
         orderDetails
       });
 
+      console.log('Payment intent response:', response);
       return response;
     },
     onSuccess: (data) => {
+      console.log('Payment intent created successfully:', data);
       setPaymentIntentClientSecret(data.clientSecret);
       setOrderId(data.orderId || `order_${Date.now()}`);
       setActiveStep(2);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Payment intent creation failed:', error);
+      console.error('Error details:', error.response?.data || error.message);
+      // Show user-friendly error message
+      alert(`Error creating payment: ${error.response?.data?.error || error.message || 'Unknown error'}`);
     }
   });
 
@@ -149,9 +160,28 @@ const CheckoutNew: React.FC = () => {
   const handleNext = () => {
     if (activeStep === 1) {
       // Validate shipping info
-      if (!customerInfo.name || !customerInfo.email || !customerInfo.address || !customerInfo.city || !customerInfo.zipCode) {
+      console.log('Validating shipping info:', customerInfo);
+      
+      const missingFields = [];
+      if (!customerInfo.name?.trim()) missingFields.push('Name');
+      if (!customerInfo.email?.trim()) missingFields.push('Email');
+      if (!customerInfo.address?.trim()) missingFields.push('Address');
+      if (!customerInfo.city?.trim()) missingFields.push('City');
+      if (!customerInfo.zipCode?.trim()) missingFields.push('ZIP Code');
+      
+      if (missingFields.length > 0) {
+        alert(`Please fill in required fields: ${missingFields.join(', ')}`);
         return;
       }
+      
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(customerInfo.email)) {
+        alert('Please enter a valid email address');
+        return;
+      }
+      
+      console.log('Validation passed, creating payment intent...');
       createPaymentMutation.mutate();
     } else {
       setActiveStep(prev => prev + 1);
