@@ -27,7 +27,7 @@ import {
   useMediaQuery,
   Card,
   CardContent,
-  Grid2 as Grid,
+  Grid,
   Collapse,
   IconButton
 } from '@mui/material';
@@ -35,7 +35,6 @@ import {
   ExpandMore,
   ExpandLess,
   Edit,
-  Visibility,
   LocalShipping
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

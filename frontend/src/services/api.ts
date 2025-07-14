@@ -120,6 +120,7 @@ export const createOrder = async (orderData: {
   total: number;
   status?: string;
   customerInfo?: any;
+  paymentIntentId?: string;
 }) => {
   const response = await api.post('/orders', orderData);
   return response.data;

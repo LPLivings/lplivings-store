@@ -5,7 +5,6 @@ import {
 } from '@stripe/react-stripe-js';
 import {
   Box,
-  Alert,
   Typography,
   Divider
 } from '@mui/material';
