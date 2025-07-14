@@ -47,7 +47,6 @@ const AddProduct: React.FC = () => {
     price: '',
     category: '',
   });
-  const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string>(''); // Store the uploaded image URL
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
@@ -160,7 +159,6 @@ const AddProduct: React.FC = () => {
       
       // Compress image for better performance
       const compressedFile = await compressImage(file);
-      setImage(compressedFile);
       const previewUrl = URL.createObjectURL(compressedFile);
       setImagePreview(previewUrl);
       
