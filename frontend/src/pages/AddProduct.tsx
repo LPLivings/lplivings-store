@@ -49,6 +49,7 @@ const AddProduct: React.FC = () => {
   });
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string>(''); // Store the uploaded image URL
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -189,6 +190,7 @@ const AddProduct: React.FC = () => {
         setIsUploading(false);
         
         if (uploadSuccess) {
+          setUploadedImageUrl(imageUrl); // Store the uploaded image URL
           console.log('Starting AI analysis for:', imageUrl);
           analyzeImageMutation.mutate(imageUrl);
         } else {
@@ -229,24 +231,8 @@ const AddProduct: React.FC = () => {
         throw new Error('Please select a category');
       }
       
-      let imageUrl = '';
-      
-      if (image) {
-        try {
-          const fileExtension = image.name.split('.').pop() || 'jpg';
-          const { uploadUrl, imageUrl: finalImageUrl } = await getUploadUrl(fileExtension);
-          
-          const uploadSuccess = await uploadFile(uploadUrl, image);
-          if (uploadSuccess) {
-            imageUrl = finalImageUrl;
-          } else {
-            console.warn('Image upload failed, continuing without image');
-          }
-        } catch (uploadError) {
-          console.error('Image upload error:', uploadError);
-          // Continue without image rather than failing the entire product creation
-        }
-      }
+      // Use the already uploaded image URL (from the first upload for AI analysis)
+      const imageUrl = uploadedImageUrl;
       
       const productData = {
         name: formData.name.trim(),
