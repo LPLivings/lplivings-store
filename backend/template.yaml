@@ -78,7 +78,7 @@ Resources:
     Properties:
       StageName: !Ref Environment
       Cors:
-        AllowMethods: "'GET,POST,OPTIONS'"
+        AllowMethods: "'GET,POST,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,Authorization'"
         AllowOrigin: "'*'"
       Auth:
@@ -162,6 +162,12 @@ Resources:
           Properties:
             RestApiId: !Ref ECommerceApi
             Path: /products
+            Method: OPTIONS
+        OptionsProductsId:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /products/{id}
             Method: OPTIONS
 
   AuthFunction:
