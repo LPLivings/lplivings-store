@@ -232,6 +232,16 @@ const AddProduct: React.FC = () => {
       // Use the already uploaded image URL (from the first upload for AI analysis)
       const imageUrl = uploadedImageUrl;
       
+      console.log('Creating product with data:', {
+        name: formData.name.trim(),
+        description: formData.description.trim(),
+        price: parseFloat(formData.price),
+        category: formData.category,
+        userId: user?.id || '',
+        imageUrl: imageUrl,
+        uploadedImageUrlState: uploadedImageUrl
+      });
+      
       const productData = {
         name: formData.name.trim(),
         description: formData.description.trim(),
@@ -241,7 +251,9 @@ const AddProduct: React.FC = () => {
         imageUrl: imageUrl
       };
       
-      return addProduct(productData);
+      const result = await addProduct(productData);
+      console.log('Product creation result:', result);
+      return result;
     },
     onSuccess: () => {
       setSuccess('Product added successfully!');
@@ -250,6 +262,7 @@ const AddProduct: React.FC = () => {
       }, 1500);
     },
     onError: (error: any) => {
+      console.error('Product creation failed:', error);
       setError(error.message || 'Failed to add product. Please try again.');
     },
     retry: 1, // Retry failed requests once
