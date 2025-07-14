@@ -27,7 +27,7 @@ import {
   useMediaQuery,
   Card,
   CardContent,
-  Grid,
+  Grid2 as Grid,
   Collapse,
   IconButton
 } from '@mui/material';
@@ -202,7 +202,7 @@ const AdminOrders: React.FC = () => {
           {isMobile ? (
             <Grid container spacing={2}>
               {orders.map((order: Order) => (
-                <Grid item xs={12} key={order.id}>
+                <Grid size={{ xs: 12 }} key={order.id}>
                   <Card elevation={2}>
                     <CardContent>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
