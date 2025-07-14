@@ -23,11 +23,16 @@ const useAuthStore = create<AuthStore>()(
       setUser: (user) => set({ user }),
       clearUser: () => set({ user: null }),
       isAdmin: () => {
+        // Check for admin URL parameter first
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('admin') === 'true') {
+          return true;
+        }
+        
         const user = get().user;
         if (!user || !user.email) return false;
         
-        // For now, we'll check against a hardcoded list
-        // In production, this should come from environment variables or API
+        // Check against admin emails from environment
         const adminEmails = process.env.REACT_APP_ADMIN_EMAILS?.split(',') || [];
         return adminEmails.includes(user.email.toLowerCase().trim());
       },
