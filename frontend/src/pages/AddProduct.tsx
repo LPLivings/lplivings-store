@@ -30,7 +30,7 @@ import {
   Upload,
   SmartToy
 } from '@mui/icons-material';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 import { addProduct, getUploadUrl, uploadFile, analyzeImage } from '../services/api';
@@ -38,6 +38,7 @@ import { addProduct, getUploadUrl, uploadFile, analyzeImage } from '../services/
 const AddProduct: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const queryClient = useQueryClient();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
@@ -257,6 +258,8 @@ const AddProduct: React.FC = () => {
     },
     onSuccess: () => {
       setSuccess('Product added successfully!');
+      // Invalidate products query to refetch the latest data
+      queryClient.invalidateQueries({ queryKey: ['products'] });
       setTimeout(() => {
         navigate('/products');
       }, 1500);
