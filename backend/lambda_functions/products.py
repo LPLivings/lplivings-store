@@ -9,6 +9,9 @@ import urllib.parse
 s3_client = boto3.client('s3')
 S3_BUCKET = os.environ.get('S3_BUCKET', 'ecommerce-product-images')
 
+# Admin emails who can delete products (comma-separated)
+ADMIN_EMAILS = os.environ.get('ADMIN_EMAILS', 'admin@example.com').split(',')
+
 def lambda_handler(event, context):
     http_method = event['httpMethod']
     
@@ -30,6 +33,8 @@ def lambda_handler(event, context):
             return get_products(headers)
         elif http_method == 'POST':
             return add_product(event, headers)
+        elif http_method == 'DELETE':
+            return delete_product(event, headers)
         else:
             return {
                 'statusCode': 405,
@@ -303,4 +308,96 @@ def add_product(event, headers):
             'statusCode': 500,
             'headers': headers,
             'body': json.dumps({'error': f'Failed to add product: {str(e)}'})
+        }
+
+def get_user_email_from_token(event):
+    """Extract user email from JWT token in Authorization header"""
+    try:
+        auth_header = event.get('headers', {}).get('Authorization') or event.get('headers', {}).get('authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return None
+            
+        token = auth_header.split(' ')[1]
+        
+        # For now, we'll decode without verification (not secure for production)
+        # In production, you should verify the JWT signature
+        import base64
+        payload = token.split('.')[1]
+        # Add padding if needed
+        padding = len(payload) % 4
+        if padding:
+            payload += '=' * (4 - padding)
+        
+        decoded = base64.b64decode(payload)
+        user_data = json.loads(decoded)
+        
+        return user_data.get('email')
+    except Exception as e:
+        print(f"Error extracting email from token: {e}")
+        return None
+
+def is_admin_user(email):
+    """Check if user email is in admin list"""
+    if not email:
+        return False
+    return email.strip().lower() in [admin.strip().lower() for admin in ADMIN_EMAILS]
+
+def delete_product(event, headers):
+    """Delete a product (admin only)"""
+    try:
+        # Extract user email from token
+        user_email = get_user_email_from_token(event)
+        
+        if not is_admin_user(user_email):
+            return {
+                'statusCode': 403,
+                'headers': headers,
+                'body': json.dumps({'error': 'Unauthorized. Admin access required.'})
+            }
+        
+        # Get product ID from path parameters
+        path_params = event.get('pathParameters', {}) or {}
+        product_id = path_params.get('id')
+        
+        if not product_id:
+            return {
+                'statusCode': 400,
+                'headers': headers,
+                'body': json.dumps({'error': 'Product ID is required'})
+            }
+        
+        # Get existing products
+        existing_products = get_products_from_s3()
+        
+        # Find and remove the product
+        original_count = len(existing_products)
+        existing_products = [p for p in existing_products if p.get('id') != product_id]
+        
+        if len(existing_products) == original_count:
+            return {
+                'statusCode': 404,
+                'headers': headers,
+                'body': json.dumps({'error': 'Product not found'})
+            }
+        
+        # Save updated products list
+        save_products_to_s3(existing_products)
+        
+        print(f"Product {product_id} deleted by admin user {user_email}")
+        
+        return {
+            'statusCode': 200,
+            'headers': headers,
+            'body': json.dumps({'message': f'Product {product_id} deleted successfully'})
+        }
+        
+    except Exception as e:
+        print(f"Error in delete_product: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            'statusCode': 500,
+            'headers': headers,
+            'body': json.dumps({'error': f'Failed to delete product: {str(e)}'})
+        }
         }

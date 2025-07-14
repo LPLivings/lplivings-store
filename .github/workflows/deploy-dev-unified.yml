@@ -83,6 +83,7 @@ jobs:
         GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
         SAM_BUCKET: ${{ secrets.SAM_DEPLOYMENT_BUCKET }}
         STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+        ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
       run: |
         cd backend
         
@@ -91,6 +92,7 @@ jobs:
         GOOGLE_SHEETS_ID_PARAM="${GOOGLE_SHEETS_ID:-placeholder-sheets-id}"
         GOOGLE_CREDS_PARAM="${GOOGLE_CREDS_PARAM:-{}}"
         STRIPE_SECRET_KEY_PARAM="${STRIPE_SECRET_KEY:-sk_test_placeholder_stripe_key_for_dev}"
+        ADMIN_EMAILS_PARAM="${ADMIN_EMAILS:-admin@example.com}"
         
         # Warn about missing secrets
         [[ "$GOOGLE_CLIENT_ID_PARAM" == "placeholder-client-id" ]] && echo "⚠️  Using placeholder for GOOGLE_CLIENT_ID"
@@ -104,6 +106,7 @@ jobs:
         echo "GoogleSheetsId: $GOOGLE_SHEETS_ID_PARAM"
         echo "GoogleCredentials length: ${#GOOGLE_CREDS_PARAM}"
         echo "StripeSecretKey: ${STRIPE_SECRET_KEY_PARAM:0:10}..."
+        echo "AdminEmails: $ADMIN_EMAILS_PARAM"
         
         # Deploy backend, but don't fail if no changes
         if sam deploy \
@@ -116,6 +119,7 @@ jobs:
             GoogleSheetsId="$GOOGLE_SHEETS_ID_PARAM" \
             GoogleCredentials="$GOOGLE_CREDS_PARAM" \
             StripeSecretKey="$STRIPE_SECRET_KEY_PARAM" \
+            AdminEmails="$ADMIN_EMAILS_PARAM" \
           --no-confirm-changeset; then
           echo "✅ Backend deployment completed"
         else

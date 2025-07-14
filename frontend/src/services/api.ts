@@ -124,3 +124,8 @@ export const createOrder = async (orderData: {
   const response = await api.post('/orders', orderData);
   return response.data;
 };
+
+export const deleteProduct = async (productId: string) => {
+  const response = await api.delete(`/products/${productId}`);
+  return response.data;
+};

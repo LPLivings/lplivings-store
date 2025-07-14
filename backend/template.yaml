@@ -23,6 +23,10 @@ Parameters:
     Type: String
     Description: Stripe Secret Key for payment processing
     NoEcho: true
+  AdminEmails:
+    Type: String
+    Description: Comma-separated list of admin emails who can delete products
+    Default: admin@example.com
 
 Globals:
   Function:
@@ -36,6 +40,7 @@ Globals:
         GOOGLE_SHEETS_ID: !Ref GoogleSheetsId
         GOOGLE_CREDENTIALS: !Ref GoogleCredentials
         S3_BUCKET: !Ref ProductImagesBucket
+        ADMIN_EMAILS: !Ref AdminEmails
     Tags:
       Project: LPLivings-Store
       Environment: !Ref Environment
@@ -146,6 +151,12 @@ Resources:
             RestApiId: !Ref ECommerceApi
             Path: /products
             Method: POST
+        DeleteProduct:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /products/{id}
+            Method: DELETE
         OptionsProducts:
           Type: Api
           Properties:
