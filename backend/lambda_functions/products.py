@@ -400,4 +400,3 @@ def delete_product(event, headers):
             'headers': headers,
             'body': json.dumps({'error': f'Failed to delete product: {str(e)}'})
         }
-        }
