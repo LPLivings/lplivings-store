@@ -38,6 +38,7 @@ const WalletPaymentButton: React.FC<WalletPaymentButtonProps> = ({
   const stripe = useStripe();
   const [paymentRequest, setPaymentRequest] = useState<any>(null);
   const [canMakePayment, setCanMakePayment] = useState(false);
+  const [walletType, setWalletType] = useState<'applePay' | 'googlePay' | 'link' | null>(null);
 
   useEffect(() => {
     if (!stripe) return;
@@ -61,11 +62,27 @@ const WalletPaymentButton: React.FC<WalletPaymentButtonProps> = ({
           amount: 0,
         },
       ],
+      // Disable Link to prioritize native wallets
+      disableWallets: ['link'],
     });
 
     // Check if the browser supports the Payment Request API
     pr.canMakePayment().then(result => {
+      console.log('Payment Request canMakePayment result:', result);
+      
       if (result) {
+        // Detect which wallet type is available
+        if (result.applePay) {
+          console.log('Apple Pay is available');
+          setWalletType('applePay');
+        } else if (result.googlePay) {
+          console.log('Google Pay is available');
+          setWalletType('googlePay');
+        } else if (result.link) {
+          console.log('Link Pay is available');
+          setWalletType('link');
+        }
+        
         setCanMakePayment(true);
         setPaymentRequest(pr);
       }
@@ -208,11 +225,22 @@ const WalletPaymentButton: React.FC<WalletPaymentButtonProps> = ({
   if (!canMakePayment || !paymentRequest) {
     return null;
   }
+  
+  // Only show wallet button if Apple Pay or Google Pay is available
+  // Hide if only Link is available (user wants native wallet experience)
+  if (walletType === 'link') {
+    console.log('Only Link Pay available, hiding wallet button for native experience');
+    return null;
+  }
 
   return (
     <Box sx={{ mb: 3 }}>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2, textAlign: 'center' }}>
-        Pay quickly and securely with your digital wallet
+        {walletType === 'applePay' 
+          ? 'Pay with Apple Pay' 
+          : walletType === 'googlePay' 
+          ? 'Pay with Google Pay'
+          : 'Pay quickly and securely with your digital wallet'}
       </Typography>
       
       <PaymentRequestButtonElement 
@@ -220,7 +248,7 @@ const WalletPaymentButton: React.FC<WalletPaymentButtonProps> = ({
           paymentRequest,
           style: {
             paymentRequestButton: {
-              type: 'default',
+              type: walletType === 'applePay' ? 'applePay' : walletType === 'googlePay' ? 'googlePay' : 'default',
               theme: 'dark',
               height: '48px',
             },
