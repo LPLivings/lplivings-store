@@ -47,13 +47,19 @@ interface Order {
   createdAt: string;
 }
 
+interface OrdersResponse {
+  orders: Order[];
+  isAdmin: boolean;
+  totalOrders: number;
+}
+
 const Orders: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  const { data: orders, isLoading, error } = useQuery({
+  const { data: orders, isLoading, error } = useQuery<OrdersResponse>({
     queryKey: ['orders', user?.id],
     queryFn: () => getOrders(user?.id),
     enabled: !!user,
@@ -133,7 +139,7 @@ const Orders: React.FC = () => {
     );
   }
 
-  if (!orders || orders.length === 0) {
+  if (!orders || !orders.orders || orders.orders.length === 0) {
     return (
       <Container maxWidth="md" sx={{ py: 4, textAlign: 'center' }}>
         <ShoppingBag sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
@@ -161,7 +167,7 @@ const Orders: React.FC = () => {
       </Typography>
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        {orders.map((order: Order) => (
+        {orders?.orders?.map((order: Order) => (
           <Card key={order.id} elevation={2} sx={{ borderRadius: 2 }}>
             <CardContent sx={{ p: 3 }}>
               {/* Order Header */}
