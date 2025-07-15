@@ -8,10 +8,6 @@ import {
   Box,
   Alert,
   CircularProgress,
-  MenuItem,
-  Select,
-  FormControl,
-  InputLabel,
   Card,
   CardMedia,
   Chip,
@@ -46,7 +42,6 @@ const AddProduct: React.FC = () => {
     name: '',
     description: '',
     price: '',
-    category: '',
   });
   const [imagePreview, setImagePreview] = useState<string>('');
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string>(''); // Store the uploaded image URL
@@ -58,15 +53,10 @@ const AddProduct: React.FC = () => {
   const [aiSuggestions, setAiSuggestions] = useState({
     name: '',
     description: '',
-    category: '',
     applied: false
   });
 
-  const categories = [
-    'Electronics', 'Clothing', 'Home & Garden', 'Kitchen', 
-    'Books', 'Sports', 'Beauty', 'Toys', 'Automotive', 
-    'Health', 'General'
-  ];
+  // Categories removed - no longer needed
 
   const analyzeImageMutation = useMutation({
     mutationFn: async (imageUrl: string) => {
@@ -79,7 +69,6 @@ const AddProduct: React.FC = () => {
       setAiSuggestions({
         name: data.name || '',
         description: data.description || '',
-        category: data.category || '',
         applied: false
       });
       setIsAnalyzing(false);
@@ -210,7 +199,6 @@ const AddProduct: React.FC = () => {
       ...prev,
       name: aiSuggestions.name,
       description: aiSuggestions.description,
-      category: aiSuggestions.category
     }));
     setAiSuggestions(prev => ({ ...prev, applied: true }));
   };
@@ -226,9 +214,6 @@ const AddProduct: React.FC = () => {
       if (!formData.price || parseFloat(formData.price) <= 0) {
         throw new Error('Please enter a valid price');
       }
-      if (!formData.category) {
-        throw new Error('Please select a category');
-      }
       
       // Use the already uploaded image URL (from the first upload for AI analysis)
       const imageUrl = uploadedImageUrl;
@@ -237,7 +222,6 @@ const AddProduct: React.FC = () => {
         name: formData.name.trim(),
         description: formData.description.trim(),
         price: parseFloat(formData.price),
-        category: formData.category,
         userId: user?.id || '',
         imageUrl: imageUrl,
         uploadedImageUrlState: uploadedImageUrl
@@ -247,7 +231,7 @@ const AddProduct: React.FC = () => {
         name: formData.name.trim(),
         description: formData.description.trim(),
         price: parseFloat(formData.price),
-        category: formData.category,
+        category: 'General', // Default category when not specified
         userId: user?.id || '',
         imageUrl: imageUrl
       };
@@ -437,11 +421,6 @@ const AddProduct: React.FC = () => {
                           <strong>Name:</strong> {aiSuggestions.name}
                         </Typography>
                       )}
-                      {aiSuggestions.category && (
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                          <strong>Category:</strong> {aiSuggestions.category}
-                        </Typography>
-                      )}
                       {aiSuggestions.description && (
                         <Typography variant="body2" color="text.secondary">
                           <strong>Description:</strong> {aiSuggestions.description}
@@ -464,7 +443,7 @@ const AddProduct: React.FC = () => {
                         variant="outlined"
                         size={isMobile ? "medium" : "small"}
                         startIcon={<Close />}
-                        onClick={() => setAiSuggestions(prev => ({ ...prev, name: '', description: '', category: '' }))}
+                        onClick={() => setAiSuggestions(prev => ({ ...prev, name: '', description: '' }))}
                         fullWidth={isMobile}
                       >
                         Fill Manually
@@ -499,21 +478,6 @@ const AddProduct: React.FC = () => {
                   required
                   variant="outlined"
                 />
-
-                <FormControl fullWidth required>
-                  <InputLabel>Category</InputLabel>
-                  <Select
-                    value={formData.category}
-                    label="Category"
-                    onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
-                  >
-                    {categories.map((cat) => (
-                      <MenuItem key={cat} value={cat}>
-                        {cat}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
 
                 <TextField
                   fullWidth
