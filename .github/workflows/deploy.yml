@@ -91,8 +91,19 @@ jobs:
           create_secret_if_not_exists "lplivings-store/${{ env.ENVIRONMENT }}/stripe-publishable-key" "${{ secrets.STRIPE_PUBLISHABLE_KEY }}"
           create_secret_if_not_exists "lplivings-store/${{ env.ENVIRONMENT }}/google-client-id" "${{ secrets.GOOGLE_CLIENT_ID }}"
           create_secret_if_not_exists "lplivings-store/${{ env.ENVIRONMENT }}/google-sheets-id" "${{ secrets.GOOGLE_SHEETS_ID }}"
-          create_secret_if_not_exists "lplivings-store/${{ env.ENVIRONMENT }}/google-credentials" "${{ secrets.GOOGLE_CREDENTIALS }}"
           create_secret_if_not_exists "lplivings-store/${{ env.ENVIRONMENT }}/admin-emails" "${{ secrets.ADMIN_EMAILS }}"
+          
+          # Handle Google credentials separately due to multiline JSON
+          if [ -n "${{ secrets.GOOGLE_CREDENTIALS }}" ]; then
+            SECRET_NAME="lplivings-store/${{ env.ENVIRONMENT }}/google-credentials"
+            if aws secretsmanager describe-secret --secret-id "$SECRET_NAME" >/dev/null 2>&1; then
+              echo "Secret $SECRET_NAME already exists, updating..."
+              echo '${{ secrets.GOOGLE_CREDENTIALS }}' | aws secretsmanager update-secret --secret-id "$SECRET_NAME" --secret-string file:///dev/stdin
+            else
+              echo "Creating secret $SECRET_NAME..."
+              echo '${{ secrets.GOOGLE_CREDENTIALS }}' | aws secretsmanager create-secret --name "$SECRET_NAME" --secret-string file:///dev/stdin
+            fi
+          fi
 
       - name: SAM Build and Deploy
         run: |
