@@ -23,7 +23,10 @@ const WalletDebug: React.FC = () => {
       requestPayerEmail: true,
     });
 
-    pr.canMakePayment().then(result => {
+    pr.canMakePayment().then(async result => {
+      const applePayActive = (window as any).ApplePaySession?.canMakePaymentsWithActiveCard ? 
+        await (window as any).ApplePaySession.canMakePaymentsWithActiveCard('merchant.com.stripe').catch(() => 'error') : 'not_available';
+      
       setDebugInfo({
         canMakePayment: !!result,
         paymentMethods: result || {},
@@ -32,6 +35,8 @@ const WalletDebug: React.FC = () => {
         isSafari: /Safari/.test(navigator.userAgent) && !/Chrome|CriOS/.test(navigator.userAgent),
         isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent),
         isAndroid: /Android/.test(navigator.userAgent),
+        applePaySupported: (window as any).ApplePaySession?.canMakePayments() || false,
+        applePayActive: applePayActive,
         timestamp: new Date().toISOString()
       });
     }).catch(error => {
