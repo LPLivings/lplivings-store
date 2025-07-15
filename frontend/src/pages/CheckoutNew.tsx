@@ -37,8 +37,8 @@ import useAuthStore from '../store/authStore';
 import useCartStore from '../store/cartStore';
 import { createPaymentIntent, confirmPayment, createOrder } from '../services/api';
 import StripePaymentForm from '../components/StripePaymentForm';
-import WalletDebug from '../components/WalletDebug';
-import ApplePayCheck from '../components/ApplePayCheck';
+// import WalletDebug from '../components/WalletDebug';
+// import ApplePayCheck from '../components/ApplePayCheck';
 
 const CheckoutNew: React.FC = () => {
   const navigate = useNavigate();
@@ -340,8 +340,6 @@ const CheckoutNew: React.FC = () => {
                 
                 {paymentIntentClientSecret && (
                   <Elements stripe={stripePromise} options={{ clientSecret: paymentIntentClientSecret }}>
-                    <ApplePayCheck />
-                    <WalletDebug />
                     <StripePaymentForm
                       amount={totalAmountCents}
                       customerInfo={customerInfo}
