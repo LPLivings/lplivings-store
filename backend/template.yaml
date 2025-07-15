@@ -37,13 +37,6 @@ Globals:
       Variables:
         ENVIRONMENT: !Ref Environment
         S3_BUCKET: !Ref ProductImagesBucket
-    Policies:
-      - Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Action:
-              - secretsmanager:GetSecretValue
-            Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:lplivings-store/${Environment}/*'
     Tags:
       Project: LPLivings-Store
       Environment: !Ref Environment
@@ -197,6 +190,13 @@ Resources:
     Properties:
       CodeUri: lambda_functions/
       Handler: payment.lambda_handler
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:lplivings-store/${Environment}/*'
       Events:
         CreatePaymentIntent:
           Type: Api
@@ -231,6 +231,12 @@ Resources:
       Policies:
         - S3CrudPolicy:
             BucketName: !Ref ProductImagesBucket
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:lplivings-store/${Environment}/*'
       Events:
         GetOrders:
           Type: Api
