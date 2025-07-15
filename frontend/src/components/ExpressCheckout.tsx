@@ -112,12 +112,17 @@ const ExpressCheckout: React.FC<ExpressCheckoutProps> = ({
         const authData = localStorage.getItem('auth-storage');
         const authToken = authData ? JSON.parse(authData).state?.user?.token : '';
 
+        // Add timeout to prevent hanging
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+
         const response = await fetch(`${process.env.REACT_APP_API_URL}/create-payment-intent`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${authToken}`,
           },
+          signal: controller.signal,
           body: JSON.stringify({
             amount: totalAmountCents + (event.shippingOption?.amount || 0),
             currency: 'usd',
@@ -126,11 +131,14 @@ const ExpressCheckout: React.FC<ExpressCheckoutProps> = ({
           }),
         });
 
+        clearTimeout(timeoutId);
+
         if (!response.ok) {
           throw new Error('Failed to create payment intent');
         }
 
-        const { client_secret: clientSecret } = await response.json();
+        const responseData = await response.json();
+        const clientSecret = responseData.clientSecret;
 
         // Confirm the payment
         const { error, paymentIntent } = await stripe.confirmCardPayment(
@@ -217,6 +225,20 @@ const ExpressCheckout: React.FC<ExpressCheckoutProps> = ({
   if (!canMakePayment || !paymentRequest || !items.length) {
     return null;
   }
+  
+  // If only Link is available and causes issues, show a note instead
+  // This can be uncommented if Link continues to cause problems
+  // if (paymentRequest && canMakePayment) {
+  //   return (
+  //     <Card sx={{ mb: 3, backgroundColor: 'info.50', borderColor: 'info.200' }} variant="outlined">
+  //       <CardContent sx={{ textAlign: 'center' }}>
+  //         <Typography variant="body2" color="info.main">
+  //           💡 For the best experience, use the regular checkout below
+  //         </Typography>
+  //       </CardContent>
+  //     </Card>
+  //   );
+  // }
 
   return (
     <Card sx={{ mb: 3, backgroundColor: 'primary.50', borderColor: 'primary.200' }} variant="outlined">

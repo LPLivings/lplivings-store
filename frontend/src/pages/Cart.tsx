@@ -180,8 +180,14 @@ const Cart: React.FC = () => {
             fullWidth
             variant="contained"
             onClick={handleCheckout}
+            disabled={!user || items.length === 0}
+            sx={{ 
+              py: 1.5,
+              fontSize: '1.1rem',
+              fontWeight: 'bold'
+            }}
           >
-            Proceed to Checkout
+            {!user ? 'Login to Checkout' : 'Proceed to Checkout'}
           </Button>
         </Box>
       </Paper>
