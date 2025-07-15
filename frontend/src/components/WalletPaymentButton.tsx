@@ -73,21 +73,32 @@ const WalletPaymentButton: React.FC<WalletPaymentButtonProps> = ({
 
     pr.on('paymentmethod', async (event) => {
       try {
+        console.log('Wallet payment method triggered:', event);
+        
         // Create payment intent on the server
         const authData = localStorage.getItem('auth-storage');
         const authToken = authData ? JSON.parse(authData).state?.user?.token : '';
 
+        console.log('Creating payment intent for wallet payment...');
+        
+        // Add timeout to the fetch request
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+        
         const response = await fetch(`${process.env.REACT_APP_API_URL}/create-payment-intent`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${authToken}`,
           },
+          signal: controller.signal,
           body: JSON.stringify({
             amount: amount,
             currency: currency,
             customerEmail: event.payerEmail || customerInfo.email,
             orderDetails: {
+              orderId: `wallet_${Date.now()}`,
+              customerId: authToken ? 'authenticated_user' : 'guest',
               customerInfo: {
                 ...customerInfo,
                 name: event.payerName || customerInfo.name,
@@ -106,7 +117,22 @@ const WalletPaymentButton: React.FC<WalletPaymentButtonProps> = ({
           }),
         });
 
-        const { client_secret: clientSecret } = await response.json();
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Payment intent creation failed:', response.status, errorText);
+          throw new Error(`Payment intent creation failed: ${response.status}`);
+        }
+
+        const responseData = await response.json();
+        console.log('Payment intent response:', responseData);
+        
+        if (responseData.error) {
+          throw new Error(responseData.error);
+        }
+
+        const clientSecret = responseData.clientSecret;
 
         // Confirm the payment with the payment method from the wallet
         const { error, paymentIntent } = await stripe.confirmCardPayment(
@@ -144,9 +170,21 @@ const WalletPaymentButton: React.FC<WalletPaymentButtonProps> = ({
           onError('Payment failed');
         }
       } catch (error) {
-        event.complete('fail');
-        onError('Payment failed');
         console.error('Wallet payment error:', error);
+        event.complete('fail');
+        
+        // Provide more specific error messages
+        if (error instanceof Error) {
+          if (error.message.includes('fetch')) {
+            onError('Network error. Please check your connection and try again.');
+          } else if (error.message.includes('timeout')) {
+            onError('Request timed out. Please try again.');
+          } else {
+            onError(error.message || 'Payment failed');
+          }
+        } else {
+          onError('Payment failed. Please try again.');
+        }
       }
     });
 
