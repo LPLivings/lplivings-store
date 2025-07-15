@@ -27,12 +27,23 @@ const Cart: React.FC = () => {
   const navigate = useNavigate();
   const { items, removeItem, updateQuantity, getTotalPrice, clearCart } = useCartStore();
   const { user } = useAuthStore();
+  
+  console.log('Cart - User state:', user);
+  console.log('Cart - Items state:', items);
+  console.log('Cart - Items length:', items.length);
+  console.log('Cart - Should disable button:', !user || items.length === 0);
 
   const handleCheckout = () => {
+    console.log('HandleCheckout called - User:', user);
+    console.log('HandleCheckout called - Items:', items);
+    
     if (!user) {
+      console.log('No user, showing alert');
       alert('Please login to checkout');
       return;
     }
+    
+    console.log('Navigating to checkout...');
     navigate('/checkout');
   };
 
@@ -87,6 +98,13 @@ const Cart: React.FC = () => {
       <Typography variant="h4" gutterBottom>
         Shopping Cart
       </Typography>
+      
+      {/* Debug info */}
+      <Box sx={{ mb: 2, p: 1, bgcolor: 'info.light', borderRadius: 1 }}>
+        <Typography variant="caption" display="block">
+          🔍 Debug: User: {user ? '✅ Logged in' : '❌ Not logged in'} | Items: {items.length} | Button should be: {(!user || items.length === 0) ? 'disabled' : 'enabled'}
+        </Typography>
+      </Box>
 
       {/* Express Checkout Section */}
       {user && items.length > 0 && (
@@ -180,11 +198,12 @@ const Cart: React.FC = () => {
             fullWidth
             variant="contained"
             onClick={handleCheckout}
-            disabled={!user || items.length === 0}
+            disabled={items.length === 0}
             sx={{ 
               py: 1.5,
               fontSize: '1.1rem',
-              fontWeight: 'bold'
+              fontWeight: 'bold',
+              opacity: (!user || items.length === 0) ? 0.6 : 1
             }}
           >
             {!user ? 'Login to Checkout' : 'Proceed to Checkout'}
