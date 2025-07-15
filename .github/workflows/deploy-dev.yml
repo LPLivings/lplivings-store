@@ -101,12 +101,15 @@ jobs:
       run: |
         cd backend
         
+        # Set environment variable for parameter file
+        export ENVIRONMENT=${{ env.ENVIRONMENT }}
+        
         # Create parameter file to avoid shell interpretation issues
-        cat > deploy-params.txt << EOF
-Environment=${{ env.ENVIRONMENT }}
-GoogleClientId=\${GOOGLE_CLIENT_ID:-placeholder-client-id}
-GoogleSheetsId=\${GOOGLE_SHEETS_ID:-placeholder-sheets-id}
-StripeSecretKey=\${STRIPE_SECRET_KEY:-placeholder-stripe-key}
+        cat > deploy-params.txt << 'EOF'
+Environment=$ENVIRONMENT
+GoogleClientId=${GOOGLE_CLIENT_ID:-placeholder-client-id}
+GoogleSheetsId=${GOOGLE_SHEETS_ID:-placeholder-sheets-id}
+StripeSecretKey=${STRIPE_SECRET_KEY:-placeholder-stripe-key}
 EOF
         
         # Handle Google Credentials separately to avoid multiline issues
