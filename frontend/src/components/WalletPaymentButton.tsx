@@ -68,7 +68,7 @@ const WalletPaymentButton: React.FC<WalletPaymentButtonProps> = ({
     pr.canMakePayment().then(result => {
       console.log('Payment Request canMakePayment result:', result);
       console.log('User agent:', navigator.userAgent);
-      console.log('Is Safari:', /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent));
+      console.log('Is Safari:', /Safari/.test(navigator.userAgent) && !/Chrome|CriOS/.test(navigator.userAgent));
       
       if (result) {
         console.log('Available payment methods:', {
@@ -239,6 +239,21 @@ const WalletPaymentButton: React.FC<WalletPaymentButtonProps> = ({
 
   if (!canMakePayment || !paymentRequest) {
     console.log('Wallet payment not available:', { canMakePayment, paymentRequest: !!paymentRequest });
+    
+    // Show helpful message for iOS users not using Safari
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome|CriOS/.test(navigator.userAgent);
+    
+    if (isIOS && !isSafari) {
+      return (
+        <Box sx={{ mb: 3, p: 2, bgcolor: 'info.light', borderRadius: 2 }}>
+          <Typography variant="body2" color="info.contrastText">
+            💡 <strong>Tip:</strong> To use Apple Pay, please open this page in Safari instead of Chrome
+          </Typography>
+        </Box>
+      );
+    }
+    
     return null;
   }
   

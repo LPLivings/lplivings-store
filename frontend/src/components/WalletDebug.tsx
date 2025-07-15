@@ -29,7 +29,7 @@ const WalletDebug: React.FC = () => {
         paymentMethods: result || {},
         userAgent: navigator.userAgent,
         platform: navigator.platform,
-        isSafari: /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent),
+        isSafari: /Safari/.test(navigator.userAgent) && !/Chrome|CriOS/.test(navigator.userAgent),
         isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent),
         isAndroid: /Android/.test(navigator.userAgent),
         timestamp: new Date().toISOString()
