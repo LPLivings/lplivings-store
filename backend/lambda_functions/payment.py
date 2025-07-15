@@ -24,11 +24,18 @@ except ImportError as e:
     build = None
 
 from datetime import datetime
+from secrets_manager import get_stripe_secret_key, get_google_credentials, get_google_sheets_id
 
 # Initialize Stripe
 if stripe:
-    stripe.api_key = os.environ.get('STRIPE_SECRET_KEY', '')
-    print(f"Stripe API key configured: {bool(stripe.api_key and len(stripe.api_key) > 10)}")
+    stripe_key = get_stripe_secret_key()
+    if stripe_key:
+        stripe.api_key = stripe_key
+        print(f"Stripe API key configured from Secrets Manager: {bool(stripe.api_key and len(stripe.api_key) > 10)}")
+    else:
+        # Fallback to environment variable for development
+        stripe.api_key = os.environ.get('STRIPE_SECRET_KEY', '')
+        print(f"Stripe API key configured from environment: {bool(stripe.api_key and len(stripe.api_key) > 10)}")
 else:
     print("Stripe not available")
 
@@ -221,14 +228,14 @@ def create_order_record(payment_intent, order_details):
     """Create order record in Google Sheets"""
     
     try:
-        # Get Google Sheets service
-        google_creds = os.environ.get('GOOGLE_CREDENTIALS', '{}')
-        if google_creds == '{}' or 'placeholder' in google_creds:
-            print("No Google credentials, skipping order record")
+        # Get Google Sheets service using Secrets Manager
+        google_creds = get_google_credentials()
+        if not google_creds:
+            print("No Google credentials from Secrets Manager, skipping order record")
             return f"order_{payment_intent.id}"
         
         credentials = service_account.Credentials.from_service_account_info(
-            json.loads(google_creds),
+            google_creds,
             scopes=['https://www.googleapis.com/auth/spreadsheets']
         )
         service = build('sheets', 'v4', credentials=credentials)
@@ -248,7 +255,7 @@ def create_order_record(payment_intent, order_details):
         ]
         
         # Add to Google Sheets
-        sheets_id = os.environ.get('GOOGLE_SHEETS_ID', '')
+        sheets_id = get_google_sheets_id()
         if sheets_id:
             service.spreadsheets().values().append(
                 spreadsheetId=sheets_id,

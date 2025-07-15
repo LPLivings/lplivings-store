@@ -36,11 +36,14 @@ Globals:
     Environment:
       Variables:
         ENVIRONMENT: !Ref Environment
-        GOOGLE_CLIENT_ID: !Ref GoogleClientId
-        GOOGLE_SHEETS_ID: !Ref GoogleSheetsId
-        GOOGLE_CREDENTIALS: !Ref GoogleCredentials
         S3_BUCKET: !Ref ProductImagesBucket
-        ADMIN_EMAILS: !Ref AdminEmails
+    Policies:
+      - Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - secretsmanager:GetSecretValue
+            Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:lplivings-store/${Environment}/*'
     Tags:
       Project: LPLivings-Store
       Environment: !Ref Environment
@@ -194,9 +197,6 @@ Resources:
     Properties:
       CodeUri: lambda_functions/
       Handler: payment.lambda_handler
-      Environment:
-        Variables:
-          STRIPE_SECRET_KEY: !Ref StripeSecretKey
       Events:
         CreatePaymentIntent:
           Type: Api

@@ -48,9 +48,6 @@ jobs:
           MISSING_SECRETS=""
           [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ] && MISSING_SECRETS="$MISSING_SECRETS AWS_ACCESS_KEY_ID"
           [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ] && MISSING_SECRETS="$MISSING_SECRETS AWS_SECRET_ACCESS_KEY"
-          [ -z "${{ secrets.GOOGLE_CLIENT_ID }}" ] && MISSING_SECRETS="$MISSING_SECRETS GOOGLE_CLIENT_ID"
-          [ -z "${{ secrets.GOOGLE_SHEETS_ID }}" ] && MISSING_SECRETS="$MISSING_SECRETS GOOGLE_SHEETS_ID"
-          [ -z "${{ secrets.GOOGLE_CREDENTIALS }}" ] && MISSING_SECRETS="$MISSING_SECRETS GOOGLE_CREDENTIALS"
           [ -z "${{ secrets.SAM_DEPLOYMENT_BUCKET }}" ] && MISSING_SECRETS="$MISSING_SECRETS SAM_DEPLOYMENT_BUCKET"
           
           if [ ! -z "$MISSING_SECRETS" ]; then
@@ -65,6 +62,37 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Setup AWS Secrets Manager
+        run: |
+          # Create or update secrets in AWS Secrets Manager
+          # Only create secrets if they don't exist and we have the values
+          
+          create_secret_if_not_exists() {
+            local secret_name=$1
+            local secret_value=$2
+            
+            if [ -n "$secret_value" ] && [ "$secret_value" != "" ]; then
+              # Check if secret exists
+              if aws secretsmanager describe-secret --secret-id "$secret_name" >/dev/null 2>&1; then
+                echo "Secret $secret_name already exists, updating..."
+                aws secretsmanager update-secret --secret-id "$secret_name" --secret-string "$secret_value"
+              else
+                echo "Creating secret $secret_name..."
+                aws secretsmanager create-secret --name "$secret_name" --secret-string "$secret_value"
+              fi
+            else
+              echo "Warning: No value provided for $secret_name"
+            fi
+          }
+          
+          # Create secrets if they have values
+          create_secret_if_not_exists "lplivings-store/${{ env.ENVIRONMENT }}/stripe-secret-key" "${{ secrets.STRIPE_SECRET_KEY }}"
+          create_secret_if_not_exists "lplivings-store/${{ env.ENVIRONMENT }}/stripe-publishable-key" "${{ secrets.STRIPE_PUBLISHABLE_KEY }}"
+          create_secret_if_not_exists "lplivings-store/${{ env.ENVIRONMENT }}/google-client-id" "${{ secrets.GOOGLE_CLIENT_ID }}"
+          create_secret_if_not_exists "lplivings-store/${{ env.ENVIRONMENT }}/google-sheets-id" "${{ secrets.GOOGLE_SHEETS_ID }}"
+          create_secret_if_not_exists "lplivings-store/${{ env.ENVIRONMENT }}/google-credentials" "${{ secrets.GOOGLE_CREDENTIALS }}"
+          create_secret_if_not_exists "lplivings-store/${{ env.ENVIRONMENT }}/admin-emails" "${{ secrets.ADMIN_EMAILS }}"
+
       - name: SAM Build and Deploy
         run: |
           cd backend
@@ -74,9 +102,11 @@ jobs:
             --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET }} \
             --parameter-overrides \
               Environment=${{ env.ENVIRONMENT }} \
-              GoogleClientId=${{ secrets.GOOGLE_CLIENT_ID }} \
-              GoogleSheetsId=${{ secrets.GOOGLE_SHEETS_ID }} \
+              GoogleClientId=placeholder \
+              GoogleSheetsId=placeholder \
               GoogleCredentials=placeholder \
+              StripeSecretKey=placeholder \
+              AdminEmails=placeholder \
             --capabilities CAPABILITY_IAM \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset
@@ -119,10 +149,23 @@ jobs:
           cd frontend
           npm ci --prefer-offline
 
+      - name: Get Stripe publishable key from AWS Secrets Manager
+        id: stripe-key
+        run: |
+          STRIPE_KEY=$(aws secretsmanager get-secret-value --secret-id "lplivings-store/${{ env.ENVIRONMENT }}/stripe-publishable-key" --query SecretString --output text 2>/dev/null || echo "")
+          echo "stripe_key=$STRIPE_KEY" >> $GITHUB_OUTPUT
+
+      - name: Get Google Client ID from AWS Secrets Manager
+        id: google-client
+        run: |
+          GOOGLE_CLIENT_ID=$(aws secretsmanager get-secret-value --secret-id "lplivings-store/${{ env.ENVIRONMENT }}/google-client-id" --query SecretString --output text 2>/dev/null || echo "")
+          echo "google_client_id=$GOOGLE_CLIENT_ID" >> $GITHUB_OUTPUT
+
       - name: Build React app
         env:
           REACT_APP_API_URL: ${{ env.ENVIRONMENT == 'dev' && 'https://api-dev.selfcaretech.com' || 'https://api.selfcaretech.com' }}
-          REACT_APP_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          REACT_APP_GOOGLE_CLIENT_ID: ${{ steps.google-client.outputs.google_client_id }}
+          REACT_APP_STRIPE_PUBLISHABLE_KEY: ${{ steps.stripe-key.outputs.stripe_key }}
           REACT_APP_ENVIRONMENT: ${{ env.ENVIRONMENT }}
         run: |
           cd frontend

@@ -3,12 +3,19 @@ import boto3
 import uuid
 from datetime import datetime
 import os
+from secrets_manager import get_admin_emails
 
 s3_client = boto3.client('s3')
 S3_BUCKET = os.environ.get('S3_BUCKET', 'ecommerce-product-images')
 
 # Admin emails who can view all orders and update status
-ADMIN_EMAILS = os.environ.get('ADMIN_EMAILS', 'admin@example.com').split(',')
+def get_admin_emails_list():
+    """Get admin emails from Secrets Manager with fallback"""
+    admin_emails = get_admin_emails()
+    if admin_emails:
+        return admin_emails
+    # Fallback to environment variable
+    return os.environ.get('ADMIN_EMAILS', 'admin@example.com').split(',')
 
 def lambda_handler(event, context):
     http_method = event['httpMethod']
@@ -103,7 +110,8 @@ def is_admin_user(email):
     """Check if user email is in admin list"""
     if not email:
         return False
-    return email.strip().lower() in [admin.strip().lower() for admin in ADMIN_EMAILS]
+    admin_emails = get_admin_emails_list()
+    return email.strip().lower() in [admin.strip().lower() for admin in admin_emails]
 
 def get_orders(event, headers):
     try:
