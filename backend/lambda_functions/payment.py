@@ -1,15 +1,40 @@
 import json
 import os
-import boto3
-import stripe
+import traceback
+
+try:
+    import stripe
+    print("Stripe imported successfully")
+except ImportError as e:
+    print(f"Failed to import stripe: {e}")
+    stripe = None
+
+try:
+    import boto3
+except ImportError as e:
+    print(f"Failed to import boto3: {e}")
+    boto3 = None
+
+try:
+    from google.oauth2 import service_account
+    from googleapiclient.discovery import build
+except ImportError as e:
+    print(f"Failed to import Google API client: {e}")
+    service_account = None
+    build = None
+
 from datetime import datetime
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
 
 # Initialize Stripe
-stripe.api_key = os.environ.get('STRIPE_SECRET_KEY', '')
+if stripe:
+    stripe.api_key = os.environ.get('STRIPE_SECRET_KEY', '')
+    print(f"Stripe API key configured: {bool(stripe.api_key and len(stripe.api_key) > 10)}")
+else:
+    print("Stripe not available")
 
 def lambda_handler(event, context):
+    print(f"Lambda invoked with event: {json.dumps(event)}")
+    
     headers = {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Content-Type,Authorization',
@@ -17,6 +42,7 @@ def lambda_handler(event, context):
     }
     
     if event['httpMethod'] == 'OPTIONS':
+        print("Handling OPTIONS request")
         return {
             'statusCode': 200,
             'headers': headers,
@@ -25,42 +51,83 @@ def lambda_handler(event, context):
     
     try:
         path = event.get('path', '')
+        print(f"Request path: {path}")
         
-        if '/create-payment-intent' in path:
+        # Add health check endpoint
+        if '/health' in path:
+            return {
+                'statusCode': 200,
+                'headers': headers,
+                'body': json.dumps({
+                    'status': 'healthy',
+                    'stripe_configured': bool(stripe and stripe.api_key and 'placeholder' not in stripe.api_key)
+                })
+            }
+        elif '/create-payment-intent' in path:
             return create_payment_intent(event, headers)
         elif '/confirm-payment' in path:
             return confirm_payment(event, headers)
         else:
+            print(f"Unknown path: {path}")
             return {
                 'statusCode': 404,
                 'headers': headers,
-                'body': json.dumps({'error': 'Endpoint not found'})
+                'body': json.dumps({'error': f'Endpoint not found: {path}'})
             }
             
     except Exception as e:
-        print(f"Payment error: {str(e)}")
+        print(f"Payment lambda error: {str(e)}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
         return {
             'statusCode': 500,
             'headers': headers,
-            'body': json.dumps({'error': str(e)})
+            'body': json.dumps({'error': f'Internal server error: {str(e)}'})
         }
 
 def create_payment_intent(event, headers):
     """Create a Stripe payment intent for checkout"""
     
     try:
+        print(f"Payment intent request received")
+        
+        # Check if Stripe is available
+        if not stripe:
+            print("Stripe module not available")
+            return {
+                'statusCode': 500,
+                'headers': headers,
+                'body': json.dumps({'error': 'Payment processing module not available'})
+            }
+        
         body = json.loads(event['body'])
+        print(f"Parsed body: {body}")
+        
         amount = body.get('amount')  # Amount in cents
         currency = body.get('currency', 'usd')
         customer_email = body.get('customerEmail')
         order_details = body.get('orderDetails', {})
         
+        print(f"Amount: {amount}, Currency: {currency}, Email: {customer_email}")
+        
         if not amount or amount <= 0:
+            print(f"Invalid amount: {amount}")
             return {
                 'statusCode': 400,
                 'headers': headers,
                 'body': json.dumps({'error': 'Invalid amount'})
             }
+        
+        # Check if Stripe key is configured
+        if not stripe.api_key or 'placeholder' in stripe.api_key or len(stripe.api_key) < 10:
+            print(f"Stripe API key not configured properly. Key length: {len(stripe.api_key) if stripe.api_key else 0}")
+            return {
+                'statusCode': 500,
+                'headers': headers,
+                'body': json.dumps({'error': 'Payment processing not configured properly'})
+            }
+        
+        print(f"Creating Stripe payment intent for amount: {amount}")
         
         # Create payment intent
         intent = stripe.PaymentIntent.create(
@@ -74,20 +141,31 @@ def create_payment_intent(event, headers):
             }
         )
         
+        print(f"Payment intent created successfully: {intent.id}")
+        
         return {
             'statusCode': 200,
             'headers': headers,
             'body': json.dumps({
                 'clientSecret': intent.client_secret,
-                'paymentIntentId': intent.id
+                'paymentIntentId': intent.id,
+                'orderId': order_details.get('orderId', '')
             })
         }
         
     except stripe.error.StripeError as e:
+        print(f"Stripe error: {str(e)}")
         return {
             'statusCode': 400,
             'headers': headers,
-            'body': json.dumps({'error': str(e)})
+            'body': json.dumps({'error': f'Stripe error: {str(e)}'})
+        }
+    except Exception as e:
+        print(f"General error in create_payment_intent: {str(e)}")
+        return {
+            'statusCode': 500,
+            'headers': headers,
+            'body': json.dumps({'error': f'Server error: {str(e)}'})
         }
 
 def confirm_payment(event, headers):
