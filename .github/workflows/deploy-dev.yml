@@ -103,11 +103,11 @@ jobs:
         
         # Create parameter file to avoid shell interpretation issues
         cat > deploy-params.txt << EOF
-Environment=dev
-GoogleClientId=\${GOOGLE_CLIENT_ID:-placeholder-client-id}
-GoogleSheetsId=\${GOOGLE_SHEETS_ID:-placeholder-sheets-id}
-StripeSecretKey=\${STRIPE_SECRET_KEY:-placeholder-stripe-key}
-EOF
+        Environment=dev
+        GoogleClientId=\${GOOGLE_CLIENT_ID:-placeholder-client-id}
+        GoogleSheetsId=\${GOOGLE_SHEETS_ID:-placeholder-sheets-id}
+        StripeSecretKey=\${STRIPE_SECRET_KEY:-placeholder-stripe-key}
+        EOF
         
         # Handle Google Credentials separately to avoid multiline issues
         if [[ -n "$GOOGLE_CREDENTIALS" ]]; then
