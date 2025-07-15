@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - prod
   # Note: dev branch deployment handled by deploy-dev.yml
 
 env:
