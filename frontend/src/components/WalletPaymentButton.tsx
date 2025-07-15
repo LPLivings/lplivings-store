@@ -248,7 +248,7 @@ const WalletPaymentButton: React.FC<WalletPaymentButtonProps> = ({
           paymentRequest,
           style: {
             paymentRequestButton: {
-              type: walletType === 'applePay' ? 'applePay' : walletType === 'googlePay' ? 'googlePay' : 'default',
+              type: 'default',
               theme: 'dark',
               height: '48px',
             },
