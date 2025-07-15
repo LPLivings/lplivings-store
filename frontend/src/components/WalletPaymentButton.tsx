@@ -62,15 +62,21 @@ const WalletPaymentButton: React.FC<WalletPaymentButtonProps> = ({
           amount: 0,
         },
       ],
-      // Disable Link to prioritize native wallets
-      disableWallets: ['link'],
     });
 
     // Check if the browser supports the Payment Request API
     pr.canMakePayment().then(result => {
       console.log('Payment Request canMakePayment result:', result);
+      console.log('User agent:', navigator.userAgent);
+      console.log('Is Safari:', /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent));
       
       if (result) {
+        console.log('Available payment methods:', {
+          applePay: result.applePay,
+          googlePay: result.googlePay,
+          link: result.link
+        });
+        
         // Detect which wallet type is available
         if (result.applePay) {
           console.log('Apple Pay is available');
@@ -85,7 +91,16 @@ const WalletPaymentButton: React.FC<WalletPaymentButtonProps> = ({
         
         setCanMakePayment(true);
         setPaymentRequest(pr);
+      } else {
+        console.log('No payment methods available');
+        console.log('Device info:', {
+          platform: navigator.platform,
+          userAgent: navigator.userAgent,
+          language: navigator.language
+        });
       }
+    }).catch(error => {
+      console.error('Payment Request error:', error);
     });
 
     pr.on('paymentmethod', async (event) => {
@@ -223,15 +238,11 @@ const WalletPaymentButton: React.FC<WalletPaymentButtonProps> = ({
   }, [stripe, amount, currency, country, customerInfo, onSuccess, onError]);
 
   if (!canMakePayment || !paymentRequest) {
+    console.log('Wallet payment not available:', { canMakePayment, paymentRequest: !!paymentRequest });
     return null;
   }
   
-  // Only show wallet button if Apple Pay or Google Pay is available
-  // Hide if only Link is available (user wants native wallet experience)
-  if (walletType === 'link') {
-    console.log('Only Link Pay available, hiding wallet button for native experience');
-    return null;
-  }
+  console.log('Rendering wallet button with type:', walletType);
 
   return (
     <Box sx={{ mb: 3 }}>
