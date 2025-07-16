@@ -1,14 +1,17 @@
 # LPLivings Store - E-commerce Application
 
-A modern e-commerce platform built with React frontend and AWS serverless backend, featuring Google OAuth authentication and Google Sheets integration.
+A modern e-commerce platform built with React frontend and AWS serverless backend, featuring Stripe payments, mobile wallet support, and comprehensive admin management.
 
 ## 🚀 Features
 
 - **Frontend**: React with Material-UI, TypeScript
 - **Backend**: AWS Lambda, API Gateway, S3
 - **Authentication**: Google OAuth 2.0
-- **Data Storage**: Google Sheets integration
-- **Image Storage**: AWS S3 with public access
+- **Payments**: Stripe integration with Apple Pay & Google Pay
+- **Data Storage**: S3 JSON storage for products and orders
+- **Image Storage**: AWS S3 with AI-powered product analysis
+- **Admin Panel**: Order management and product administration
+- **Mobile Optimized**: Wallet payments for iOS and Android
 - **CI/CD**: GitHub Actions with dev/prod environments
 
 ## 🏗️ Architecture

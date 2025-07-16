@@ -1,0 +1,112 @@
+name: Deploy to Development (Working)
+
+on:
+  # Disabled - using deploy-dev-unified.yml instead
+  # push:
+  #   branches: [ dev ]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  ENVIRONMENT: dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: development
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Set up AWS CLI
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Set up SAM CLI
+      uses: aws-actions/setup-sam@v2
+
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        pip install -r requirements.txt
+
+    - name: SAM Build
+      run: |
+        cd backend
+        sam build --debug
+
+    - name: SAM Deploy
+      env:
+        GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+        GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+        GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+        SAM_BUCKET: ${{ secrets.SAM_DEPLOYMENT_BUCKET }}
+        STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+      run: |
+        cd backend
+        
+        # Clean and compress Google Credentials
+        echo "$GOOGLE_CREDENTIALS" > /tmp/google_creds.json
+        GOOGLE_CREDS_CLEAN=$(cat /tmp/google_creds.json | tr -d '\n\r' | sed 's/"/\\"/g')
+        
+        sam deploy \
+          --stack-name lplivings-ecommerce-dev \
+          --s3-bucket "$SAM_BUCKET" \
+          --capabilities CAPABILITY_IAM \
+          --parameter-overrides \
+            "Environment=dev" \
+            "GoogleClientId=$GOOGLE_CLIENT_ID" \
+            "GoogleSheetsId=$GOOGLE_SHEETS_ID" \
+            "GoogleCredentials=$GOOGLE_CREDS_CLEAN" \
+            "StripeSecretKey=$STRIPE_SECRET_KEY" \
+          --no-confirm-changeset
+
+    - name: Get API URL
+      id: api-url
+      run: |
+        API_URL=$(aws cloudformation describe-stacks \
+          --stack-name lplivings-ecommerce-dev \
+          --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
+          --output text)
+        echo "api-url=$API_URL" >> $GITHUB_OUTPUT
+        echo "Backend API deployed to: $API_URL"
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm ci
+
+    - name: Build React app
+      env:
+        REACT_APP_API_URL: ${{ steps.api-url.outputs.api-url }}
+        REACT_APP_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      run: |
+        cd frontend
+        npm run build
+
+    - name: Deploy frontend to S3
+      run: |
+        cd frontend
+        aws s3 sync build/ s3://lplivings-dev-frontend --delete
+
+    - name: Success message
+      run: |
+        echo "🚀 Deployment Complete!"
+        echo "Frontend: http://lplivings-dev-frontend.s3-website-us-east-1.amazonaws.com"
+        echo "Backend API: ${{ steps.api-url.outputs.api-url }}"

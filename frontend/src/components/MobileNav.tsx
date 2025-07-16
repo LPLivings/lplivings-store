@@ -1,6 +1,6 @@
 import React from 'react';
 import { Paper, BottomNavigation, BottomNavigationAction, Badge } from '@mui/material';
-import { Home, ShoppingBag, ShoppingCart, AccountCircle, Add } from '@mui/icons-material';
+import { Home, ShoppingBag, ShoppingCart, AccountCircle, Add, Receipt } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import useCartStore from '../store/cartStore';
 import useAuthStore from '../store/authStore';
@@ -23,8 +23,10 @@ const MobileNav: React.FC = () => {
         return 2;
       case '/add-product':
         return 3;
-      case '/profile':
+      case '/orders':
         return 4;
+      case '/profile':
+        return 5;
       default:
         return 0;
     }
@@ -63,6 +65,13 @@ const MobileNav: React.FC = () => {
               }
               break;
             case 4:
+              if (user) {
+                navigate('/orders');
+              } else {
+                alert('Please login to view orders');
+              }
+              break;
+            case 5:
               navigate('/profile');
               break;
           }
@@ -80,6 +89,7 @@ const MobileNav: React.FC = () => {
           }
         />
         <BottomNavigationAction label="Add" icon={<Add />} />
+        <BottomNavigationAction label="Orders" icon={<Receipt />} />
         <BottomNavigationAction label="Profile" icon={<AccountCircle />} />
       </BottomNavigation>
     </Paper>

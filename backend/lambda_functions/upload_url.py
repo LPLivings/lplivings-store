@@ -26,19 +26,43 @@ def lambda_handler(event, context):
         file_extension = event.get('queryStringParameters', {}).get('ext', 'jpg')
         filename = f"products/{str(uuid.uuid4())}.{file_extension}"
         
-        # Generate pre-signed URL for upload
+        # Map file extensions to proper MIME types
+        content_type_map = {
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg', 
+            'png': 'image/png',
+            'webp': 'image/webp',
+            'gif': 'image/gif'
+        }
+        content_type = content_type_map.get(file_extension.lower(), 'image/jpeg')
+        
+        # Ensure consistent filename extension matches content type
+        if content_type == 'image/jpeg' and not filename.lower().endswith(('.jpg', '.jpeg')):
+            filename = f"products/{str(uuid.uuid4())}.jpg"
+        elif content_type == 'image/png' and not filename.lower().endswith('.png'):
+            filename = f"products/{str(uuid.uuid4())}.png"
+        elif content_type == 'image/webp' and not filename.lower().endswith('.webp'):
+            filename = f"products/{str(uuid.uuid4())}.webp"
+        
+        print(f"File extension: {file_extension}, Content-Type: {content_type}")
+        
+        # Generate pre-signed URL for upload - include ContentType in signature
         presigned_url = s3_client.generate_presigned_url(
             'put_object',
             Params={
                 'Bucket': S3_BUCKET,
                 'Key': filename,
-                'ContentType': f'image/{file_extension}'
+                'ContentType': content_type,  # Include ContentType so signature matches browser's automatic header
             },
             ExpiresIn=300  # 5 minutes
         )
         
         # Return pre-signed URL and final image URL
+        # Use direct S3 URL since bucket has public read access
         image_url = f"https://{S3_BUCKET}.s3.amazonaws.com/{filename}"
+        
+        print(f"Generated upload URL for: {filename}")
+        print(f"Direct image URL: {image_url}")
         
         return {
             'statusCode': 200,
@@ -46,7 +70,8 @@ def lambda_handler(event, context):
             'body': json.dumps({
                 'uploadUrl': presigned_url,
                 'imageUrl': image_url,
-                'filename': filename
+                'filename': filename,
+                'contentType': content_type  # Return the expected content type
             })
         }
         

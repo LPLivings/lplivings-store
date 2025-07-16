@@ -19,6 +19,14 @@ Parameters:
     Type: String
     Description: Google Service Account Credentials (JSON)
     NoEcho: true
+  StripeSecretKey:
+    Type: String
+    Description: Stripe Secret Key for payment processing
+    NoEcho: true
+  AdminEmails:
+    Type: String
+    Description: Comma-separated list of admin emails who can delete products
+    Default: admin@example.com
 
 Globals:
   Function:
@@ -28,9 +36,6 @@ Globals:
     Environment:
       Variables:
         ENVIRONMENT: !Ref Environment
-        GOOGLE_CLIENT_ID: !Ref GoogleClientId
-        GOOGLE_SHEETS_ID: !Ref GoogleSheetsId
-        GOOGLE_CREDENTIALS: !Ref GoogleCredentials
         S3_BUCKET: !Ref ProductImagesBucket
     Tags:
       Project: LPLivings-Store
@@ -69,7 +74,7 @@ Resources:
     Properties:
       StageName: !Ref Environment
       Cors:
-        AllowMethods: "'GET,POST,OPTIONS'"
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,Authorization'"
         AllowOrigin: "'*'"
       Auth:
@@ -98,6 +103,29 @@ Resources:
             Path: /upload-url
             Method: OPTIONS
 
+  AnalyzeImageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_functions/
+      Handler: analyze_image.lambda_handler
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref ProductImagesBucket
+        - RekognitionDetectOnlyPolicy: {}
+      Events:
+        AnalyzeImage:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /analyze-image
+            Method: POST
+        OptionsAnalyzeImage:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /analyze-image
+            Method: OPTIONS
+
   ProductsFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -119,11 +147,23 @@ Resources:
             RestApiId: !Ref ECommerceApi
             Path: /products
             Method: POST
+        DeleteProduct:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /products/{id}
+            Method: DELETE
         OptionsProducts:
           Type: Api
           Properties:
             RestApiId: !Ref ECommerceApi
             Path: /products
+            Method: OPTIONS
+        OptionsProductsId:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /products/{id}
             Method: OPTIONS
 
   AuthFunction:
@@ -145,11 +185,58 @@ Resources:
             Path: /auth
             Method: OPTIONS
 
+  PaymentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_functions/
+      Handler: payment.lambda_handler
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:lplivings-store/${Environment}/*'
+      Events:
+        CreatePaymentIntent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /create-payment-intent
+            Method: POST
+        ConfirmPayment:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /confirm-payment
+            Method: POST
+        OptionsPayment1:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /create-payment-intent
+            Method: OPTIONS
+        OptionsPayment2:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /confirm-payment
+            Method: OPTIONS
+
   OrdersFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: lambda_functions/
-      Handler: orders.lambda_handler
+      Handler: orders_new.lambda_handler
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref ProductImagesBucket
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:lplivings-store/${Environment}/*'
       Events:
         GetOrders:
           Type: Api
@@ -163,11 +250,23 @@ Resources:
             RestApiId: !Ref ECommerceApi
             Path: /orders
             Method: POST
+        UpdateOrderStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /orders/{id}
+            Method: PUT
         OptionsOrders:
           Type: Api
           Properties:
             RestApiId: !Ref ECommerceApi
             Path: /orders
+            Method: OPTIONS
+        OptionsOrdersId:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ECommerceApi
+            Path: /orders/{id}
             Method: OPTIONS
 
 Outputs:

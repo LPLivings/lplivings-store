@@ -1,0 +1,117 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFront distribution for LPLivings Store custom domain
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+  DomainName:
+    Type: String
+    Description: Domain name for the environment
+  CertificateArn:
+    Type: String
+    Description: ACM Certificate ARN for the domain
+  S3BucketName:
+    Type: String
+    Description: S3 bucket name for frontend hosting
+
+Resources:
+  # Response Headers Policy for COOP/COEP
+  ResponseHeadersPolicy:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: !Sub 'lplivings-${Environment}-headers-policy'
+        CustomHeadersConfig:
+          Items:
+            - Header: 'Cross-Origin-Opener-Policy'
+              Value: 'same-origin-allow-popups'
+              Override: false
+            - Header: 'Cross-Origin-Embedder-Policy'  
+              Value: 'unsafe-none'
+              Override: false
+
+  # CloudFront Origin Access Control
+  OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub 'lplivings-${Environment}-oac'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+        Description: !Sub 'OAC for ${Environment} environment'
+
+  # CloudFront Distribution
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Aliases:
+          - !Ref DomainName
+        Comment: !Sub 'LPLivings Store ${Environment} Distribution'
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+          Compress: true
+          DefaultTTL: 86400
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+          MaxTTL: 31536000
+          MinTTL: 0
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          ResponseHeadersPolicyId: !Ref ResponseHeadersPolicy
+        DefaultRootObject: index.html
+        Enabled: true
+        HttpVersion: http2
+        IPV6Enabled: true
+        Origins:
+          - DomainName: !Sub '${S3BucketName}.s3.amazonaws.com'
+            Id: S3Origin
+            S3OriginConfig: {}
+            OriginAccessControlId: !Ref OriginAccessControl
+        PriceClass: PriceClass_100
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateArn
+          MinimumProtocolVersion: TLSv1.2_2021
+          SslSupportMethod: sni-only
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+
+Outputs:
+  CloudFrontDomainName:
+    Description: CloudFront distribution domain name
+    Value: !GetAtt CloudFrontDistribution.DomainName
+    Export:
+      Name: !Sub '${AWS::StackName}-CloudFrontDomainName'
+  
+  CloudFrontDistributionId:
+    Description: CloudFront distribution ID
+    Value: !Ref CloudFrontDistribution
+    Export:
+      Name: !Sub '${AWS::StackName}-DistributionId'
+  
+  CustomDomainName:
+    Description: Custom domain name
+    Value: !Ref DomainName
+    Export:
+      Name: !Sub '${AWS::StackName}-CustomDomain'
+
+  OriginAccessControlId:
+    Description: Origin Access Control ID for S3 bucket policy
+    Value: !Ref OriginAccessControl
+    Export:
+      Name: !Sub '${AWS::StackName}-OAC'

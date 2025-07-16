@@ -1,0 +1,73 @@
+name: Deploy Frontend Only
+
+on:
+  # Disabled - using deploy-dev-unified.yml instead
+  # push:
+  #   branches: [ dev ]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    environment: development
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm ci
+
+    - name: Build React app
+      env:
+        # Use your local development API for now
+        REACT_APP_API_URL: http://localhost:3002
+        REACT_APP_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+        REACT_APP_BUILD_SHA: ${{ github.sha }}
+        REACT_APP_BUILD_TIMESTAMP: ${{ github.event.head_commit.timestamp }}
+        REACT_APP_BUILD_BRANCH: ${{ github.ref_name }}
+        REACT_APP_ENVIRONMENT: dev
+      run: |
+        cd frontend
+        echo "Building with build info:"
+        echo "SHA: $REACT_APP_BUILD_SHA"
+        echo "Timestamp: $REACT_APP_BUILD_TIMESTAMP"
+        echo "Branch: $REACT_APP_BUILD_BRANCH"
+        npm run build
+
+    - name: Set up AWS CLI
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Deploy frontend to S3
+      run: |
+        cd frontend
+        aws s3 sync build/ s3://lplivings-dev-frontend --delete
+
+    - name: Success message
+      run: |
+        echo "🚀 Frontend Deployment Complete!"
+        echo "Frontend URL: http://lplivings-dev-frontend.s3-website-us-east-1.amazonaws.com"
+        echo "Note: Using local backend at localhost:3002 for development"
+        echo ""
+        echo "📋 Build Info:"
+        echo "SHA: ${{ github.sha }}"
+        echo "Timestamp: ${{ github.event.head_commit.timestamp }}"
+        echo "Branch: ${{ github.ref_name }}"
+        echo ""
+        echo "🐛 Debug Mode: Add ?debug=true to URL to enable debug console"

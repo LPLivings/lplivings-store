@@ -20,12 +20,16 @@ Parameters:
     Description: S3 bucket name for frontend hosting
 
 Resources:
-  # CloudFront Origin Access Identity
-  OriginAccessIdentity:
-    Type: AWS::CloudFront::OriginAccessIdentity
+  # CloudFront Origin Access Control
+  OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
     Properties:
-      OriginAccessIdentityConfig:
-        Comment: !Sub 'OAI for ${Environment} environment'
+      OriginAccessControlConfig:
+        Name: !Sub 'lplivings-${Environment}-oac'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+        Description: !Sub 'OAC for ${Environment} environment'
 
   # CloudFront Distribution
   CloudFrontDistribution:
@@ -60,8 +64,8 @@ Resources:
         Origins:
           - DomainName: !Sub '${S3BucketName}.s3.amazonaws.com'
             Id: S3Origin
-            S3OriginConfig:
-              OriginAccessIdentity: !Sub 'origin-access-identity/cloudfront/${OriginAccessIdentity}'
+            S3OriginConfig: {}
+            OriginAccessControlId: !Ref OriginAccessControl
         PriceClass: PriceClass_100
         ViewerCertificate:
           AcmCertificateArn: !Ref CertificateArn
@@ -75,7 +79,7 @@ Resources:
             ResponseCode: 200
             ResponsePagePath: /index.html
 
-  # S3 Bucket Policy for CloudFront OAI
+  # S3 Bucket Policy for CloudFront OAC
   S3BucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
@@ -84,9 +88,12 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              AWS: !Sub 'arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${OriginAccessIdentity}'
+              Service: cloudfront.amazonaws.com
             Action: 's3:GetObject'
-            Resource: !Sub '${S3BucketName}/*'
+            Resource: !Sub 'arn:aws:s3:::${S3BucketName}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}'
 
 Outputs:
   CloudFrontDomainName:

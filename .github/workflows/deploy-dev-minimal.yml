@@ -1,0 +1,170 @@
+name: Deploy to Development (Minimal)
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Force deploy even with missing secrets'
+        required: false
+        default: 'false'
+
+env:
+  AWS_REGION: us-east-1
+  ENVIRONMENT: dev
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    environment: development
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Set up AWS CLI
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Set up SAM CLI
+      uses: aws-actions/setup-sam@v2
+
+    - name: Check secrets availability
+      run: |
+        echo "🔍 Checking required secrets..."
+        echo "AWS Access Key: ${{ secrets.AWS_ACCESS_KEY_ID != '' && '✅' || '❌ MISSING' }}"
+        echo "AWS Secret Key: ${{ secrets.AWS_SECRET_ACCESS_KEY != '' && '✅' || '❌ MISSING' }}"
+        echo "SAM Bucket: ${{ secrets.SAM_DEPLOYMENT_BUCKET != '' && '✅' || '❌ MISSING' }}"
+        echo "Google Client ID: ${{ secrets.GOOGLE_CLIENT_ID != '' && '✅' || '❌ MISSING' }}"
+        echo "Google Sheets ID: ${{ secrets.GOOGLE_SHEETS_ID != '' && '✅' || '❌ MISSING' }}"
+        echo "Google Credentials: ${{ secrets.GOOGLE_CREDENTIALS != '' && '✅' || '❌ MISSING' }}"
+        echo "Stripe Secret Key: ${{ secrets.STRIPE_SECRET_KEY != '' && '✅' || '❌ MISSING (will use placeholder)' }}"
+
+    - name: Build SAM application
+      run: |
+        cd backend
+        sam build
+
+    - name: Deploy with minimal configuration
+      run: |
+        cd backend
+        
+        # Create a minimal parameter override
+        PARAMS="Environment=${{ env.ENVIRONMENT }}"
+        PARAMS="${PARAMS} GoogleClientId=${{ secrets.GOOGLE_CLIENT_ID || 'placeholder-client-id' }}"
+        PARAMS="${PARAMS} GoogleSheetsId=${{ secrets.GOOGLE_SHEETS_ID || 'placeholder-sheets-id' }}"
+        PARAMS="${PARAMS} StripeSecretKey=${{ secrets.STRIPE_SECRET_KEY || 'placeholder-stripe-key' }}"
+        
+        # Handle Google Credentials specially
+        if [ -n "${{ secrets.GOOGLE_CREDENTIALS }}" ]; then
+          echo '${{ secrets.GOOGLE_CREDENTIALS }}' > /tmp/google_creds.json
+          GOOGLE_CREDS=$(cat /tmp/google_creds.json | tr -d '\n' | sed 's/"/\\"/g')
+          PARAMS="${PARAMS} GoogleCredentials=\"${GOOGLE_CREDS}\""
+        else
+          PARAMS="${PARAMS} GoogleCredentials={}"
+        fi
+        
+        echo "🚀 Deploying with parameters..."
+        sam deploy \
+          --stack-name lplivings-ecommerce-${{ env.ENVIRONMENT }} \
+          --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET || 'default-sam-bucket' }} \
+          --capabilities CAPABILITY_IAM \
+          --parameter-overrides ${PARAMS} \
+          --no-confirm-changeset \
+          --on-failure DELETE
+
+    - name: Get API Gateway URL
+      id: get-api-url
+      run: |
+        cd backend
+        API_URL=$(aws cloudformation describe-stacks \
+          --stack-name lplivings-ecommerce-${{ env.ENVIRONMENT }} \
+          --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
+          --output text)
+        echo "api-url=$API_URL" >> $GITHUB_OUTPUT
+        echo "✅ API URL: $API_URL"
+
+    - name: Output deployment info
+      run: |
+        echo "🎉 Backend deployment complete!"
+        echo "API URL: ${{ steps.get-api-url.outputs.api-url }}"
+        echo ""
+        echo "📝 Next steps:"
+        echo "1. Set up missing GitHub secrets if any"
+        echo "2. Configure frontend deployment"
+        echo "3. Test the API endpoints"
+
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    needs: deploy-backend
+    environment: development
+    if: needs.deploy-backend.outputs.api-url != ''
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install dependencies
+      run: |
+        cd frontend
+        npm ci
+
+    - name: Create environment file
+      run: |
+        cd frontend
+        echo "REACT_APP_API_URL=${{ needs.deploy-backend.outputs.api-url }}" > .env
+        echo "REACT_APP_GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID || 'placeholder-client-id' }}" >> .env
+        echo "Environment file created:"
+        cat .env
+
+    - name: Build React app
+      run: |
+        cd frontend
+        npm run build
+
+    - name: Set up AWS CLI
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Deploy to S3
+      run: |
+        cd frontend
+        BUCKET_NAME="lplivings-dev-frontend"
+        
+        # Create bucket if it doesn't exist
+        aws s3 ls s3://${BUCKET_NAME} || aws s3 mb s3://${BUCKET_NAME}
+        
+        # Configure bucket for static website hosting
+        aws s3 website s3://${BUCKET_NAME} --index-document index.html --error-document index.html
+        
+        # Deploy files
+        aws s3 sync build/ s3://${BUCKET_NAME} --delete
+        
+        echo "✅ Frontend deployed to: http://${BUCKET_NAME}.s3-website-${{ env.AWS_REGION }}.amazonaws.com"
+
+    - name: Output final URLs
+      run: |
+        echo "🎉 Full deployment complete!"
+        echo ""
+        echo "🌐 Application URLs:"
+        echo "Frontend: http://lplivings-dev-frontend.s3-website-${{ env.AWS_REGION }}.amazonaws.com"
+        echo "Backend API: ${{ needs.deploy-backend.outputs.api-url }}"
+        echo ""
+        echo "📱 Test the mobile upload functionality!"

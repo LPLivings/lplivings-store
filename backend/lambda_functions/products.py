@@ -5,33 +5,12 @@ import base64
 from datetime import datetime
 import os
 import urllib.parse
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
 
 s3_client = boto3.client('s3')
 S3_BUCKET = os.environ.get('S3_BUCKET', 'ecommerce-product-images')
-GOOGLE_SHEETS_ID = os.environ.get('GOOGLE_SHEETS_ID', '')
 
-def get_sheets_service():
-    try:
-        google_creds = os.environ.get('GOOGLE_CREDENTIALS', '{}')
-        if google_creds == '{}' or not google_creds.strip():
-            print("No Google credentials configured, skipping Sheets integration")
-            return None
-            
-        # Check if credentials contain placeholder values
-        if 'placeholder' in google_creds:
-            print("Placeholder Google credentials detected, skipping Sheets integration")
-            return None
-            
-        credentials = service_account.Credentials.from_service_account_info(
-            json.loads(google_creds),
-            scopes=['https://www.googleapis.com/auth/spreadsheets']
-        )
-        return build('sheets', 'v4', credentials=credentials)
-    except Exception as e:
-        print(f"Failed to get sheets service: {e}")
-        return None
+# Admin emails who can delete products (comma-separated)
+ADMIN_EMAILS = os.environ.get('ADMIN_EMAILS', 'admin@example.com').split(',')
 
 def lambda_handler(event, context):
     http_method = event['httpMethod']
@@ -39,7 +18,7 @@ def lambda_handler(event, context):
     headers = {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-        'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
+        'Access-Control-Allow-Methods': 'GET,POST,DELETE,OPTIONS'
     }
     
     if http_method == 'OPTIONS':
@@ -54,6 +33,8 @@ def lambda_handler(event, context):
             return get_products(headers)
         elif http_method == 'POST':
             return add_product(event, headers)
+        elif http_method == 'DELETE':
+            return delete_product(event, headers)
         else:
             return {
                 'statusCode': 405,
@@ -67,20 +48,51 @@ def lambda_handler(event, context):
             'body': json.dumps({'error': str(e)})
         }
 
+def get_products_from_s3():
+    """Get products from S3 JSON file"""
+    try:
+        response = s3_client.get_object(Bucket=S3_BUCKET, Key='products/products.json')
+        products_data = json.loads(response['Body'].read().decode('utf-8'))
+        return products_data.get('products', [])
+    except s3_client.exceptions.NoSuchKey:
+        # File doesn't exist yet, return empty list
+        return []
+    except Exception as e:
+        print(f"Error reading products from S3: {e}")
+        return []
+
+def save_products_to_s3(products):
+    """Save products to S3 JSON file"""
+    try:
+        products_data = {'products': products, 'lastUpdated': datetime.now().isoformat()}
+        s3_client.put_object(
+            Bucket=S3_BUCKET,
+            Key='products/products.json',
+            Body=json.dumps(products_data, indent=2),
+            ContentType='application/json'
+        )
+        return True
+    except Exception as e:
+        print(f"Error saving products to S3: {e}")
+        return False
+
 def get_products(headers):
     try:
-        service = get_sheets_service()
+        # Get products from S3
+        products = get_products_from_s3()
         
-        if service is None:
-            # Return sample products as fallback
-            sample_products = [
+        # If no products found, add default ones
+        if not products:
+            default_products = [
                 {
                     'id': 'demo-001',
                     'name': 'Sample T-Shirt',
                     'description': 'Comfortable cotton t-shirt',
                     'price': 19.99,
                     'category': 'Clothing',
-                    'image': 'https://picsum.photos/300/300?random=1'
+                    'image': 'https://picsum.photos/300/300?random=1',
+                    'userId': 'demo',
+                    'createdAt': datetime.now().isoformat()
                 },
                 {
                     'id': 'demo-002',
@@ -88,7 +100,9 @@ def get_products(headers):
                     'description': 'Ceramic coffee mug',
                     'price': 12.99,
                     'category': 'Kitchen',
-                    'image': 'https://picsum.photos/300/300?random=2'
+                    'image': 'https://picsum.photos/300/300?random=2',
+                    'userId': 'demo',
+                    'createdAt': datetime.now().isoformat()
                 },
                 {
                     'id': 'demo-003',
@@ -96,7 +110,9 @@ def get_products(headers):
                     'description': 'Learn programming basics',
                     'price': 29.99,
                     'category': 'Books',
-                    'image': 'https://picsum.photos/300/300?random=3'
+                    'image': 'https://picsum.photos/300/300?random=3',
+                    'userId': 'demo',
+                    'createdAt': datetime.now().isoformat()
                 },
                 {
                     'id': 'demo-004',
@@ -104,38 +120,13 @@ def get_products(headers):
                     'description': 'High-quality wireless headphones',
                     'price': 89.99,
                     'category': 'Electronics',
-                    'image': 'https://picsum.photos/300/300?random=4'
+                    'image': 'https://picsum.photos/300/300?random=4',
+                    'userId': 'demo',
+                    'createdAt': datetime.now().isoformat()
                 }
             ]
-            
-            return {
-                'statusCode': 200,
-                'headers': headers,
-                'body': json.dumps(sample_products)
-            }
-        
-        sheet = service.spreadsheets()
-        
-        result = sheet.values().get(
-            spreadsheetId=GOOGLE_SHEETS_ID,
-            range='Products!A2:H'
-        ).execute()
-        
-        values = result.get('values', [])
-        products = []
-        
-        for row in values:
-            if len(row) >= 6:
-                products.append({
-                    'id': row[0],
-                    'name': row[1],
-                    'description': row[2],
-                    'price': float(row[3]) if row[3].replace('.','').isdigit() else 0.0,
-                    'category': row[4],
-                    'image': row[5],
-                    'userId': row[6] if len(row) > 6 else None,
-                    'createdAt': row[7] if len(row) > 7 else None
-                })
+            save_products_to_s3(default_products)
+            products = default_products
         
         return {
             'statusCode': 200,
@@ -143,22 +134,11 @@ def get_products(headers):
             'body': json.dumps(products)
         }
     except Exception as e:
-        # Return sample products as fallback on any error
-        sample_products = [
-            {
-                'id': 'demo-001',
-                'name': 'Sample T-Shirt',
-                'description': 'Comfortable cotton t-shirt',
-                'price': 19.99,
-                'category': 'Clothing',
-                'image': 'https://picsum.photos/300/300?random=1'
-            }
-        ]
-        
+        print(f"Error in get_products: {e}")
         return {
-            'statusCode': 200,
+            'statusCode': 500,
             'headers': headers,
-            'body': json.dumps(sample_products)
+            'body': json.dumps({'error': str(e)})
         }
 
 def parse_multipart_data(body, boundary):
@@ -283,32 +263,32 @@ def add_product(event, headers):
             user_id = body.get('userId', '')
             image_url = ''
         
-        # Add product to Google Sheets (if available)
+        # Add product to S3 storage
         try:
-            service = get_sheets_service()
-            if service and GOOGLE_SHEETS_ID:
-                sheet = service.spreadsheets()
-                
-                values = [[
-                    product_id,
-                    name,
-                    description,
-                    price,
-                    category,
-                    image_url,
-                    user_id,
-                    datetime.now().isoformat()
-                ]]
-                
-                sheet.values().append(
-                    spreadsheetId=GOOGLE_SHEETS_ID,
-                    range='Products!A:H',
-                    valueInputOption='RAW',
-                    body={'values': values}
-                ).execute()
-        except Exception as sheets_error:
-            print(f"Failed to add to Google Sheets: {sheets_error}")
-            # Continue anyway - the product was uploaded to S3
+            # Get existing products
+            existing_products = get_products_from_s3()
+            
+            # Create new product
+            new_product = {
+                'id': product_id,
+                'name': name,
+                'description': description,
+                'price': float(price) if isinstance(price, (int, float)) or (isinstance(price, str) and price.replace('.','').isdigit()) else 0.0,
+                'category': category,
+                'image': image_url,
+                'userId': user_id,
+                'createdAt': datetime.now().isoformat()
+            }
+            
+            # Add to list and save
+            existing_products.append(new_product)
+            save_products_to_s3(existing_products)
+            
+            print(f"Product {product_id} saved to S3 successfully")
+            
+        except Exception as storage_error:
+            print(f"Failed to save product to S3: {storage_error}")
+            # Continue anyway - at least we tried
         
         return {
             'statusCode': 201,
@@ -329,3 +309,101 @@ def add_product(event, headers):
             'headers': headers,
             'body': json.dumps({'error': f'Failed to add product: {str(e)}'})
         }
+
+def get_user_email_from_token(event):
+    """Extract user email from JWT token in Authorization header"""
+    try:
+        auth_header = event.get('headers', {}).get('Authorization') or event.get('headers', {}).get('authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return None
+            
+        token = auth_header.split(' ')[1]
+        
+        # For now, we'll decode without verification (not secure for production)
+        # In production, you should verify the JWT signature
+        import base64
+        payload = token.split('.')[1]
+        # Add padding if needed
+        padding = len(payload) % 4
+        if padding:
+            payload += '=' * (4 - padding)
+        
+        decoded = base64.b64decode(payload)
+        user_data = json.loads(decoded)
+        
+        return user_data.get('email')
+    except Exception as e:
+        print(f"Error extracting email from token: {e}")
+        return None
+
+def is_admin_user(email):
+    """Check if user email is in admin list"""
+    if not email:
+        return False
+    return email.strip().lower() in [admin.strip().lower() for admin in ADMIN_EMAILS]
+
+def delete_product(event, headers):
+    """Delete a product (admin only)"""
+    try:
+        # Check for admin URL parameter first
+        query_params = event.get('queryStringParameters') or {}
+        is_admin_via_url = query_params.get('admin') == 'true'
+        
+        # Extract user email from token
+        user_email = get_user_email_from_token(event)
+        
+        # Allow access if admin URL parameter is set OR user is in admin email list
+        if not (is_admin_via_url or is_admin_user(user_email)):
+            return {
+                'statusCode': 403,
+                'headers': headers,
+                'body': json.dumps({'error': 'Unauthorized. Admin access required.'})
+            }
+        
+        # Get product ID from path parameters
+        path_params = event.get('pathParameters', {}) or {}
+        product_id = path_params.get('id')
+        
+        if not product_id:
+            return {
+                'statusCode': 400,
+                'headers': headers,
+                'body': json.dumps({'error': 'Product ID is required'})
+            }
+        
+        # Get existing products
+        existing_products = get_products_from_s3()
+        
+        # Find and remove the product
+        original_count = len(existing_products)
+        existing_products = [p for p in existing_products if p.get('id') != product_id]
+        
+        if len(existing_products) == original_count:
+            return {
+                'statusCode': 404,
+                'headers': headers,
+                'body': json.dumps({'error': 'Product not found'})
+            }
+        
+        # Save updated products list
+        save_products_to_s3(existing_products)
+        
+        print(f"Product {product_id} deleted by admin user {user_email}")
+        
+        return {
+            'statusCode': 200,
+            'headers': headers,
+            'body': json.dumps({'message': f'Product {product_id} deleted successfully'})
+        }
+        
+    except Exception as e:
+        print(f"Error in delete_product: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            'statusCode': 500,
+            'headers': headers,
+            'body': json.dumps({'error': f'Failed to delete product: {str(e)}'})
+        }
+        
+# End of file

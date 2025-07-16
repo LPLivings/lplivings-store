@@ -1,0 +1,54 @@
+name: Deploy to Development (Simple)
+
+on:
+  # Disabled - using deploy-dev.yml instead
+  # push:
+  #   branches: [ dev ]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  ENVIRONMENT: dev
+
+jobs:
+  test-deployment:
+    runs-on: ubuntu-latest
+    environment: development
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Test secrets availability
+      run: |
+        echo "🔍 Testing secret availability..."
+        echo "AWS Access Key exists: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}"
+        echo "AWS Secret Key exists: ${{ secrets.AWS_SECRET_ACCESS_KEY != '' }}"
+        echo "SAM Bucket exists: ${{ secrets.SAM_DEPLOYMENT_BUCKET != '' }}"
+        echo "Google Client ID exists: ${{ secrets.GOOGLE_CLIENT_ID != '' }}"
+        echo "Google Sheets ID exists: ${{ secrets.GOOGLE_SHEETS_ID != '' }}"
+        echo "Google Credentials exists: ${{ secrets.GOOGLE_CREDENTIALS != '' }}"
+        echo "Stripe Key exists: ${{ secrets.STRIPE_SECRET_KEY != '' }}"
+        echo ""
+        echo "✅ If any secrets are missing, please set them up:"
+        echo "👉 https://github.com/${{ github.repository }}/settings/secrets/actions"
+        echo ""
+        echo "📋 Required secrets for full deployment:"
+        echo "- AWS_ACCESS_KEY_ID"
+        echo "- AWS_SECRET_ACCESS_KEY"  
+        echo "- SAM_DEPLOYMENT_BUCKET"
+        echo "- GOOGLE_CLIENT_ID"
+        echo "- GOOGLE_SHEETS_ID"
+        echo "- GOOGLE_CREDENTIALS"
+        echo "- STRIPE_SECRET_KEY (optional)"
+        echo ""
+        echo "📚 See GITHUB-SECRETS-SETUP.md for detailed instructions"
+        echo "🛠️ Or run: ./setup-github-secrets.sh"
+
+    - name: Environment check passed
+      run: |
+        echo "🎉 Basic deployment workflow is working!"
+        echo "📝 Next steps:"
+        echo "1. Configure missing GitHub secrets"
+        echo "2. Enable the full deploy-dev.yml workflow" 
+        echo "3. Test the complete deployment pipeline"

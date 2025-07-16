@@ -12,23 +12,64 @@ import {
   Paper,
   Divider,
   TextField,
+  Container,
 } from '@mui/material';
 import { Delete, Add, Remove } from '@mui/icons-material';
+import { Elements } from '@stripe/react-stripe-js';
+import { stripePromise } from '../App';
 import useCartStore from '../store/cartStore';
 import useAuthStore from '../store/authStore';
 import { useNavigate } from 'react-router-dom';
+import ExpressCheckout from '../components/ExpressCheckout';
+import { createOrder } from '../services/api';
 
 const Cart: React.FC = () => {
   const navigate = useNavigate();
   const { items, removeItem, updateQuantity, getTotalPrice, clearCart } = useCartStore();
   const { user } = useAuthStore();
+  
+  // Debug logs removed for production
 
   const handleCheckout = () => {
     if (!user) {
       alert('Please login to checkout');
       return;
     }
-    alert('Checkout functionality coming soon!');
+    
+    navigate('/checkout');
+  };
+
+  const handleExpressCheckoutSuccess = async (paymentData: any) => {
+    try {
+      // Create order in our system
+      const order = await createOrder({
+        userId: user?.id || '',
+        items: paymentData.orderData.items,
+        total: paymentData.orderData.totalAmount,
+        status: 'processing',
+        customerInfo: paymentData.orderData.customerInfo,
+        paymentIntentId: paymentData.paymentIntentId
+      });
+
+      // Clear cart
+      clearCart();
+
+      // Navigate to success page with order info
+      navigate('/orders', { 
+        state: { 
+          successMessage: `Order ${order.id} created successfully!`,
+          orderId: order.id 
+        } 
+      });
+    } catch (error) {
+      console.error('Order creation failed:', error);
+      alert('Payment succeeded but order creation failed. Please contact support.');
+    }
+  };
+
+  const handleExpressCheckoutError = (error: string) => {
+    console.error('Express checkout error:', error);
+    alert(`Payment failed: ${error}`);
   };
 
   if (items.length === 0) {
@@ -45,10 +86,24 @@ const Cart: React.FC = () => {
   }
 
   return (
-    <Box>
+    <Container maxWidth="lg">
       <Typography variant="h4" gutterBottom>
         Shopping Cart
       </Typography>
+      
+      {/* Debug info removed for production */}
+
+      {/* Express Checkout Section */}
+      {user && items.length > 0 && (
+        <Elements stripe={stripePromise}>
+          <ExpressCheckout
+            items={items}
+            totalAmount={getTotalPrice()}
+            onSuccess={handleExpressCheckoutSuccess}
+            onError={handleExpressCheckoutError}
+          />
+        </Elements>
+      )}
       
       <List>
         {items.map((item) => (
@@ -130,12 +185,18 @@ const Cart: React.FC = () => {
             fullWidth
             variant="contained"
             onClick={handleCheckout}
+            disabled={!user || items.length === 0}
+            sx={{ 
+              py: 1.5,
+              fontSize: '1.1rem',
+              fontWeight: 'bold'
+            }}
           >
-            Proceed to Checkout
+            {!user ? 'Login to Checkout' : 'Proceed to Checkout'}
           </Button>
         </Box>
       </Paper>
-    </Box>
+    </Container>
   );
 };
 

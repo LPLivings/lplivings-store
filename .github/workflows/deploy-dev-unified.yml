@@ -1,0 +1,203 @@
+name: Deploy to Development (Unified)
+
+on:
+  push:
+    branches: [ dev ]
+
+env:
+  AWS_REGION: us-east-1
+  ENVIRONMENT: dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: development
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Set up AWS CLI
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Set up SAM CLI
+      uses: aws-actions/setup-sam@v2
+
+    # Backend Deployment
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        pip install -r requirements.txt
+
+    - name: SAM Build
+      run: |
+        cd backend
+        sam build
+
+    - name: Prepare Google Credentials
+      env:
+        GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+      run: |
+        # Handle Google credentials more safely
+        if [ -z "$GOOGLE_CREDENTIALS" ] || [ "$GOOGLE_CREDENTIALS" = "{}" ]; then
+          echo "⚠️  No Google credentials provided, using placeholder"
+          echo "GOOGLE_CREDS_PARAM={}" >> $GITHUB_ENV
+        else
+          # Write credentials to file safely
+          echo "$GOOGLE_CREDENTIALS" > /tmp/google_creds.json
+          
+          # Validate JSON and show first few characters for debugging
+          if jq empty /tmp/google_creds.json 2>/dev/null; then
+            # Compress to single line with proper escaping
+            GOOGLE_CREDS_CLEAN=$(jq -c . /tmp/google_creds.json)
+            echo "✅ Google credentials validated successfully"
+            echo "Credentials start with: $(echo "$GOOGLE_CREDS_CLEAN" | head -c 50)..."
+            echo "GOOGLE_CREDS_PARAM=$GOOGLE_CREDS_CLEAN" >> $GITHUB_ENV
+          else
+            echo "❌ Invalid JSON in Google credentials"
+            echo "Credentials content preview: $(echo "$GOOGLE_CREDENTIALS" | head -c 100)..."
+            echo "Using placeholder instead"
+            echo "GOOGLE_CREDS_PARAM={}" >> $GITHUB_ENV
+          fi
+        fi
+
+    - name: SAM Deploy Backend
+      env:
+        GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+        GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+        SAM_BUCKET: ${{ secrets.SAM_DEPLOYMENT_BUCKET }}
+        STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+        ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
+      run: |
+        cd backend
+        
+        # Set fallback values for empty secrets
+        GOOGLE_CLIENT_ID_PARAM="${GOOGLE_CLIENT_ID:-placeholder-client-id}"
+        GOOGLE_SHEETS_ID_PARAM="${GOOGLE_SHEETS_ID:-placeholder-sheets-id}"
+        GOOGLE_CREDS_PARAM="${GOOGLE_CREDS_PARAM:-{}}"
+        STRIPE_SECRET_KEY_PARAM="${STRIPE_SECRET_KEY:-sk_test_placeholder_stripe_key_for_dev}"
+        ADMIN_EMAILS_PARAM="${ADMIN_EMAILS:-admin@example.com}"
+        
+        # Warn about missing secrets
+        [[ "$GOOGLE_CLIENT_ID_PARAM" == "placeholder-client-id" ]] && echo "⚠️  Using placeholder for GOOGLE_CLIENT_ID"
+        [[ "$GOOGLE_SHEETS_ID_PARAM" == "placeholder-sheets-id" ]] && echo "⚠️  Using placeholder for GOOGLE_SHEETS_ID"
+        [[ "$GOOGLE_CREDS_PARAM" == "{}" ]] && echo "⚠️  Using placeholder for GOOGLE_CREDENTIALS"
+        [[ "$STRIPE_SECRET_KEY_PARAM" == "sk_test_placeholder_stripe_key_for_dev" ]] && echo "⚠️  Using placeholder for STRIPE_SECRET_KEY"
+        
+        # Debug parameters
+        echo "🔍 Deployment parameters:"
+        echo "GoogleClientId: ${GOOGLE_CLIENT_ID_PARAM:0:20}..."
+        echo "GoogleSheetsId: $GOOGLE_SHEETS_ID_PARAM"
+        echo "GoogleCredentials length: ${#GOOGLE_CREDS_PARAM}"
+        echo "StripeSecretKey: ${STRIPE_SECRET_KEY_PARAM:0:10}..."
+        echo "AdminEmails: $ADMIN_EMAILS_PARAM"
+        
+        # Deploy backend, but don't fail if no changes
+        if sam deploy \
+          --stack-name lplivings-ecommerce-dev \
+          --s3-bucket "$SAM_BUCKET" \
+          --capabilities CAPABILITY_IAM \
+          --parameter-overrides \
+            Environment=dev \
+            GoogleClientId="$GOOGLE_CLIENT_ID_PARAM" \
+            GoogleSheetsId="$GOOGLE_SHEETS_ID_PARAM" \
+            GoogleCredentials="$GOOGLE_CREDS_PARAM" \
+            StripeSecretKey="$STRIPE_SECRET_KEY_PARAM" \
+            AdminEmails="$ADMIN_EMAILS_PARAM" \
+          --no-confirm-changeset; then
+          echo "✅ Backend deployment completed"
+        else
+          if [ $? -eq 1 ]; then
+            echo "ℹ️  No backend changes to deploy - continuing with frontend"
+          else
+            echo "❌ Backend deployment failed"
+            exit 1
+          fi
+        fi
+
+    - name: Get API URL
+      id: api-url
+      run: |
+        API_URL=$(aws cloudformation describe-stacks \
+          --stack-name lplivings-ecommerce-dev \
+          --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
+          --output text)
+        echo "api-url=$API_URL" >> $GITHUB_OUTPUT
+        echo "✅ Backend deployed to: $API_URL"
+
+    # Frontend Deployment
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm ci
+
+    - name: Build React app
+      env:
+        REACT_APP_API_URL: ${{ steps.api-url.outputs.api-url }}
+        REACT_APP_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+        REACT_APP_ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
+        REACT_APP_STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+        REACT_APP_BUILD_SHA: ${{ github.sha }}
+        REACT_APP_BUILD_TIMESTAMP: ${{ github.event.head_commit.timestamp }}
+        REACT_APP_BUILD_BRANCH: ${{ github.ref_name }}
+        REACT_APP_ENVIRONMENT: dev
+      run: |
+        cd frontend
+        echo "🏗️ Building frontend with:"
+        echo "API URL: $REACT_APP_API_URL"
+        echo "Build SHA: $REACT_APP_BUILD_SHA"
+        echo "Timestamp: $REACT_APP_BUILD_TIMESTAMP"
+        echo "Branch: $REACT_APP_BUILD_BRANCH"
+        npm run build
+
+    - name: Deploy frontend to S3
+      run: |
+        cd frontend
+        aws s3 sync build/ s3://lplivings-dev-frontend --delete
+
+    - name: Invalidate CloudFront (if exists)
+      run: |
+        # Try to invalidate CloudFront cache, ignore if distribution doesn't exist
+        aws cloudfront create-invalidation \
+          --distribution-id E30P7MQ5S4C3YZ \
+          --paths "/*" || echo "CloudFront distribution not found, skipping invalidation"
+
+    - name: Cleanup
+      run: |
+        rm -f /tmp/google_creds.json
+
+    - name: Deployment Summary
+      run: |
+        echo "🚀 Unified Deployment Complete!"
+        echo ""
+        echo "📱 Frontend:"
+        echo "   URL: http://lplivings-dev-frontend.s3-website-us-east-1.amazonaws.com"
+        echo "   Custom: https://lplivings-dev.selfcaretech.com (if DNS configured)"
+        echo ""
+        echo "⚡ Backend API:"
+        echo "   URL: ${{ steps.api-url.outputs.api-url }}"
+        echo "   Custom: https://api-dev.selfcaretech.com (if DNS configured)"
+        echo ""
+        echo "📋 Build Info:"
+        echo "   SHA: ${{ github.sha }}"
+        echo "   Branch: ${{ github.ref_name }}"
+        echo "   Timestamp: ${{ github.event.head_commit.timestamp }}"
+        echo ""
+        echo "🐛 Debug Mode: Add ?debug=true to frontend URL"
+        echo "🔄 Both frontend AND backend changes are now deployed!"

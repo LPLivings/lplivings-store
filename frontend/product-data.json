@@ -1,0 +1,6 @@
+{
+  "name": "Test Product via API",
+  "description": "Testing product upload with image functionality",
+  "price": "99.99",
+  "category": "Test Category"
+}

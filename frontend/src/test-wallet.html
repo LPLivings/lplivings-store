@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Apple Pay Availability</title>
+    <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+    <h1>Apple Pay Test</h1>
+    <div id="result"></div>
+    
+    <script>
+        // Replace with your actual Stripe publishable key
+        const stripe = Stripe('pk_test_51234567890');
+        
+        const paymentRequest = stripe.paymentRequest({
+            country: 'US',
+            currency: 'usd',
+            total: {
+                label: 'Test Total',
+                amount: 1099,
+            },
+            requestPayerName: true,
+            requestPayerEmail: true,
+            disableWallets: ['link'],
+        });
+
+        paymentRequest.canMakePayment().then(function(result) {
+            const resultDiv = document.getElementById('result');
+            if (result) {
+                console.log('Payment Request result:', result);
+                let message = '<h2>✅ Wallet Payment Available</h2>';
+                
+                if (result.applePay) {
+                    message += '<p>✅ Apple Pay is available</p>';
+                }
+                if (result.googlePay) {
+                    message += '<p>✅ Google Pay is available</p>';
+                }
+                if (result.link) {
+                    message += '<p>ℹ️ Link Pay is available (but disabled)</p>';
+                }
+                
+                resultDiv.innerHTML = message;
+            } else {
+                resultDiv.innerHTML = '<h2>❌ No wallet payment methods available</h2>';
+            }
+        });
+    </script>
+</body>
+</html>
