@@ -53,8 +53,8 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup AWS Secrets Manager for Production
@@ -80,21 +80,21 @@ jobs:
           }
           
           # Create secrets if they have values
-          create_secret_if_not_exists "lplivings-store/prod/stripe-secret-key" "${{ secrets.STRIPE_SECRET_KEY_PROD }}"
-          create_secret_if_not_exists "lplivings-store/prod/stripe-publishable-key" "${{ secrets.STRIPE_PUBLISHABLE_KEY_PROD }}"
-          create_secret_if_not_exists "lplivings-store/prod/google-client-id" "${{ secrets.GOOGLE_CLIENT_ID_PROD }}"
-          create_secret_if_not_exists "lplivings-store/prod/google-sheets-id" "${{ secrets.GOOGLE_SHEETS_ID_PROD }}"
-          create_secret_if_not_exists "lplivings-store/prod/admin-emails" "${{ secrets.ADMIN_EMAILS_PROD }}"
+          create_secret_if_not_exists "lplivings-store/prod/stripe-secret-key" "${{ secrets.STRIPE_SECRET_KEY }}"
+          create_secret_if_not_exists "lplivings-store/prod/stripe-publishable-key" "${{ secrets.STRIPE_PUBLISHABLE_KEY }}"
+          create_secret_if_not_exists "lplivings-store/prod/google-client-id" "${{ secrets.GOOGLE_CLIENT_ID }}"
+          create_secret_if_not_exists "lplivings-store/prod/google-sheets-id" "${{ secrets.GOOGLE_SHEETS_ID }}"
+          create_secret_if_not_exists "lplivings-store/prod/admin-emails" "${{ secrets.ADMIN_EMAILS }}"
           
           # Handle Google credentials separately due to multiline JSON
-          if [ -n "${{ secrets.GOOGLE_CREDENTIALS_PROD }}" ]; then
+          if [ -n "${{ secrets.GOOGLE_CREDENTIALS }}" ]; then
             SECRET_NAME="lplivings-store/prod/google-credentials"
             if aws secretsmanager describe-secret --secret-id "$SECRET_NAME" >/dev/null 2>&1; then
               echo "Secret $SECRET_NAME already exists, updating..."
-              echo '${{ secrets.GOOGLE_CREDENTIALS_PROD }}' | aws secretsmanager update-secret --secret-id "$SECRET_NAME" --secret-string file:///dev/stdin
+              echo '${{ secrets.GOOGLE_CREDENTIALS }}' | aws secretsmanager update-secret --secret-id "$SECRET_NAME" --secret-string file:///dev/stdin
             else
               echo "Creating secret $SECRET_NAME..."
-              echo '${{ secrets.GOOGLE_CREDENTIALS_PROD }}' | aws secretsmanager create-secret --name "$SECRET_NAME" --secret-string file:///dev/stdin
+              echo '${{ secrets.GOOGLE_CREDENTIALS }}' | aws secretsmanager create-secret --name "$SECRET_NAME" --secret-string file:///dev/stdin
             fi
           fi
 
@@ -104,7 +104,7 @@ jobs:
           sam build
           sam deploy \
             --stack-name lplivings-ecommerce-prod \
-            --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_PROD }} \
+            --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET }} \
             --parameter-overrides \
               Environment=prod \
               GoogleClientId=placeholder \
@@ -150,27 +150,15 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-
-      - name: Get Stripe publishable key from AWS Secrets Manager
-        id: stripe-key
-        run: |
-          STRIPE_KEY=$(aws secretsmanager get-secret-value --secret-id "lplivings-store/prod/stripe-publishable-key" --query SecretString --output text 2>/dev/null || echo "")
-          echo "stripe_key=$STRIPE_KEY" >> $GITHUB_OUTPUT
-
-      - name: Get Google Client ID from AWS Secrets Manager
-        id: google-client
-        run: |
-          GOOGLE_CLIENT_ID=$(aws secretsmanager get-secret-value --secret-id "lplivings-store/prod/google-client-id" --query SecretString --output text 2>/dev/null || echo "")
-          echo "google_client_id=$GOOGLE_CLIENT_ID" >> $GITHUB_OUTPUT
 
       - name: Build React app for Production
         env:
           REACT_APP_API_URL: https://api.selfcaretech.com
-          REACT_APP_GOOGLE_CLIENT_ID: ${{ steps.google-client.outputs.google_client_id }}
-          REACT_APP_STRIPE_PUBLISHABLE_KEY: ${{ steps.stripe-key.outputs.stripe_key }}
+          REACT_APP_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          REACT_APP_STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
           REACT_APP_ENVIRONMENT: prod
         run: |
           cd frontend
