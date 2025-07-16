@@ -1,0 +1,3 @@
+Test deployment trigger
+Date: 2025-07-16
+Purpose: Testing new CI/CD workflow where main branch deploys to dev automatically

@@ -1,0 +1,213 @@
+name: Promote Dev to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_production:
+        description: 'Type "DEPLOY" to confirm production deployment'
+        required: true
+        default: 'NO'
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  validate-deployment:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Validate deployment confirmation
+      run: |
+        if [ "${{ github.event.inputs.confirm_production }}" != "DEPLOY" ]; then
+          echo "❌ Production deployment not confirmed. Please type 'DEPLOY' to proceed."
+          exit 1
+        fi
+        echo "✅ Production deployment confirmed"
+
+  deploy-backend:
+    runs-on: ubuntu-latest
+    needs: validate-deployment
+    environment: production
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+
+      - name: Cache SAM CLI
+        uses: actions/cache@v3
+        with:
+          path: ~/.local/bin/sam
+          key: sam-cli-${{ runner.os }}
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          if ! command -v sam &> /dev/null; then
+            pip install aws-sam-cli
+          fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup AWS Secrets Manager for Production
+        run: |
+          # Create or update secrets in AWS Secrets Manager for production
+          
+          create_secret_if_not_exists() {
+            local secret_name=$1
+            local secret_value=$2
+            
+            if [ -n "$secret_value" ] && [ "$secret_value" != "" ]; then
+              # Check if secret exists
+              if aws secretsmanager describe-secret --secret-id "$secret_name" >/dev/null 2>&1; then
+                echo "Secret $secret_name already exists, updating..."
+                aws secretsmanager update-secret --secret-id "$secret_name" --secret-string "$secret_value"
+              else
+                echo "Creating secret $secret_name..."
+                aws secretsmanager create-secret --name "$secret_name" --secret-string "$secret_value"
+              fi
+            else
+              echo "Warning: No value provided for $secret_name"
+            fi
+          }
+          
+          # Create secrets if they have values
+          create_secret_if_not_exists "lplivings-store/prod/stripe-secret-key" "${{ secrets.STRIPE_SECRET_KEY_PROD }}"
+          create_secret_if_not_exists "lplivings-store/prod/stripe-publishable-key" "${{ secrets.STRIPE_PUBLISHABLE_KEY_PROD }}"
+          create_secret_if_not_exists "lplivings-store/prod/google-client-id" "${{ secrets.GOOGLE_CLIENT_ID_PROD }}"
+          create_secret_if_not_exists "lplivings-store/prod/google-sheets-id" "${{ secrets.GOOGLE_SHEETS_ID_PROD }}"
+          create_secret_if_not_exists "lplivings-store/prod/admin-emails" "${{ secrets.ADMIN_EMAILS_PROD }}"
+          
+          # Handle Google credentials separately due to multiline JSON
+          if [ -n "${{ secrets.GOOGLE_CREDENTIALS_PROD }}" ]; then
+            SECRET_NAME="lplivings-store/prod/google-credentials"
+            if aws secretsmanager describe-secret --secret-id "$SECRET_NAME" >/dev/null 2>&1; then
+              echo "Secret $SECRET_NAME already exists, updating..."
+              echo '${{ secrets.GOOGLE_CREDENTIALS_PROD }}' | aws secretsmanager update-secret --secret-id "$SECRET_NAME" --secret-string file:///dev/stdin
+            else
+              echo "Creating secret $SECRET_NAME..."
+              echo '${{ secrets.GOOGLE_CREDENTIALS_PROD }}' | aws secretsmanager create-secret --name "$SECRET_NAME" --secret-string file:///dev/stdin
+            fi
+          fi
+
+      - name: SAM Build and Deploy to Production
+        run: |
+          cd backend
+          sam build
+          sam deploy \
+            --stack-name lplivings-ecommerce-prod \
+            --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_PROD }} \
+            --parameter-overrides \
+              Environment=prod \
+              GoogleClientId=placeholder \
+              GoogleSheetsId=placeholder \
+              GoogleCredentials=placeholder \
+              StripeSecretKey=placeholder \
+              AdminEmails=placeholder \
+            --capabilities CAPABILITY_IAM \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset
+
+      - name: Get API URL
+        id: api-url
+        run: |
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name lplivings-ecommerce-prod \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
+            --output text)
+          echo "api_url=$API_URL" >> $GITHUB_OUTPUT
+
+    outputs:
+      api_url: ${{ steps.api-url.outputs.api_url }}
+
+  deploy-frontend:
+    needs: deploy-backend
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci --prefer-offline
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get Stripe publishable key from AWS Secrets Manager
+        id: stripe-key
+        run: |
+          STRIPE_KEY=$(aws secretsmanager get-secret-value --secret-id "lplivings-store/prod/stripe-publishable-key" --query SecretString --output text 2>/dev/null || echo "")
+          echo "stripe_key=$STRIPE_KEY" >> $GITHUB_OUTPUT
+
+      - name: Get Google Client ID from AWS Secrets Manager
+        id: google-client
+        run: |
+          GOOGLE_CLIENT_ID=$(aws secretsmanager get-secret-value --secret-id "lplivings-store/prod/google-client-id" --query SecretString --output text 2>/dev/null || echo "")
+          echo "google_client_id=$GOOGLE_CLIENT_ID" >> $GITHUB_OUTPUT
+
+      - name: Build React app for Production
+        env:
+          REACT_APP_API_URL: https://api.selfcaretech.com
+          REACT_APP_GOOGLE_CLIENT_ID: ${{ steps.google-client.outputs.google_client_id }}
+          REACT_APP_STRIPE_PUBLISHABLE_KEY: ${{ steps.stripe-key.outputs.stripe_key }}
+          REACT_APP_ENVIRONMENT: prod
+        run: |
+          cd frontend
+          npm run build
+
+      - name: Deploy to Production S3 and CloudFront
+        run: |
+          cd frontend
+          
+          # Deploy to S3
+          aws s3 sync build/ s3://lplivings-prod-frontend --delete
+          aws cloudfront create-invalidation --distribution-id E34LYSJHP1H3XQ --paths "/*"
+
+      - name: Output deployment URLs
+        run: |
+          echo "🚀 Production Deployment Complete!"
+          echo "Frontend URL: https://lplivings.selfcaretech.com"
+          echo "Backend API: https://api.selfcaretech.com"
+
+  notify-deployment:
+    runs-on: ubuntu-latest
+    needs: [deploy-backend, deploy-frontend]
+    if: always()
+    steps:
+    - name: Notify deployment status
+      run: |
+        if [ "${{ needs.deploy-backend.result }}" == "success" ] && [ "${{ needs.deploy-frontend.result }}" == "success" ]; then
+          echo "✅ Production deployment successful!"
+          echo ""
+          echo "🌐 Production URLs:"
+          echo "Frontend: https://lplivings.selfcaretech.com"
+          echo "Backend API: https://api.selfcaretech.com"
+          echo ""
+          echo "📱 The production environment is now live with the latest code from dev!"
+        else
+          echo "❌ Production deployment failed!"
+          echo "Backend deployment: ${{ needs.deploy-backend.result }}"
+          echo "Frontend deployment: ${{ needs.deploy-frontend.result }}"
+          exit 1
+        fi
