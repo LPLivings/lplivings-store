@@ -151,23 +151,11 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Get Stripe publishable key from AWS Secrets Manager
-        id: stripe-key
-        run: |
-          STRIPE_KEY=$(aws secretsmanager get-secret-value --secret-id "lplivings-store/${{ env.ENVIRONMENT }}/stripe-publishable-key" --query SecretString --output text 2>/dev/null || echo "")
-          echo "stripe_key=$STRIPE_KEY" >> $GITHUB_OUTPUT
-
-      - name: Get Google Client ID from AWS Secrets Manager
-        id: google-client
-        run: |
-          GOOGLE_CLIENT_ID=$(aws secretsmanager get-secret-value --secret-id "lplivings-store/${{ env.ENVIRONMENT }}/google-client-id" --query SecretString --output text 2>/dev/null || echo "")
-          echo "google_client_id=$GOOGLE_CLIENT_ID" >> $GITHUB_OUTPUT
-
       - name: Build React app
         env:
           REACT_APP_API_URL: https://api-dev.selfcaretech.com
-          REACT_APP_GOOGLE_CLIENT_ID: ${{ steps.google-client.outputs.google_client_id }}
-          REACT_APP_STRIPE_PUBLISHABLE_KEY: ${{ steps.stripe-key.outputs.stripe_key }}
+          REACT_APP_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          REACT_APP_STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
           REACT_APP_ENVIRONMENT: ${{ env.ENVIRONMENT }}
         run: |
           cd frontend
